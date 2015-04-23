@@ -1,164 +1,29 @@
-From ffeeae2f699856b590e98f081dc872f70c148273 Mon Sep 17 00:00:00 2001
+From 801785ef469495c9e8295086f55820a71037101c Mon Sep 17 00:00:00 2001
 From: Matteo Battaggia <matteo.battaggia@spacetest.com>
-Date: Thu, 2 Apr 2015 09:14:20 +0200
-Subject: [PATCH] DTS files added for Space Carrier Board (code 20010) ---
- they are just the same as the icorem6dual ones by now!
+Date: Thu, 23 Apr 2015 11:01:43 +0200
+Subject: [PATCH] Added DTS file for Space20010 (just a copy of Engicam
+ icore's by now).
 
 ---
- arch/arm/boot/dts/Makefile                |    2 +
- arch/arm/boot/dts/imx6dl-space20010.dts   |  126 ++++++++++
+ arch/arm/boot/dts/Makefile                |    1 +
  arch/arm/boot/dts/imx6q-space20010.dts    |  127 ++++++++++
  arch/arm/boot/dts/imx6qdl-space20010.dtsi |  369 +++++++++++++++++++++++++++++
- 4 files changed, 624 insertions(+)
- create mode 100644 arch/arm/boot/dts/imx6dl-space20010.dts
+ 3 files changed, 497 insertions(+)
  create mode 100644 arch/arm/boot/dts/imx6q-space20010.dts
  create mode 100644 arch/arm/boot/dts/imx6qdl-space20010.dtsi
 
 diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
-index 4c8a9fa..241514d 100644
+index 4c8a9fa..4710319 100644
 --- a/arch/arm/boot/dts/Makefile
 +++ b/arch/arm/boot/dts/Makefile
-@@ -117,6 +117,8 @@ dtb-$(CONFIG_ARCH_MXC) += \
+@@ -117,6 +117,7 @@ dtb-$(CONFIG_ARCH_MXC) += \
  	imx6q-icore-rqs.dtb \
  	imx6dl-icore.dtb \
  	imx6q-icore.dtb \
-+	imx6dl-space20010.dtb \
 +	imx6q-space20010.dtb \
  	imx6dl-ofres.dtb \
  	imx6q-ofres.dtb \
  	imx6dl-ofcap.dtb \
-diff --git a/arch/arm/boot/dts/imx6dl-space20010.dts b/arch/arm/boot/dts/imx6dl-space20010.dts
-new file mode 100644
-index 0000000..dbf8e51
---- /dev/null
-+++ b/arch/arm/boot/dts/imx6dl-space20010.dts
-@@ -0,0 +1,126 @@
-+/*
-+ * Copyright (C) 2013 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+/dts-v1/;
-+
-+#include "imx6dl.dtsi"
-+#include "imx6qdl-space20010.dtsi"
-+
-+/ {
-+	model = "Engicam i.CoreM6 DualLite/Solo starterkit";
-+	compatible = "fsl,imx6-icore", "fsl,imx6dl";
-+};
-+
-+&ldb {
-+	ipu_id = <0>;
-+	sec_ipu_id = <0>;
-+};
-+
-+&mxcfb1 {
-+	status = "okay";
-+};
-+
-+&mxcfb2 {
-+	status = "okay";
-+};
-+
-+/* To be enabled for PCI peripheral.
-+   Please enable also the PCI support kernel options:
-+   CONFIG_PCI and PCI_IMX6
-+&pcie {
-+	status = "okay";
-+};
-+*/
-+
-+&i2c1 {
-+
-+	max11801@48 {
-+		compatible = "maxim,max11801";
-+		reg = <0x48>;
-+		interrupt-parent = <&gpio3>;
-+		interrupts = <31 2>;
-+		work-mode = <0>;/*DCM mode*/
-+	};
-+
-+};
-+
-+&i2c2 {
-+
-+	hdmi: edid@50 {
-+		compatible = "fsl,imx6-hdmi-i2c";
-+		reg = <0x50>;
-+	};
-+
-+};
-+
-+
-+&i2c3 {
-+
-+	codec: sgtl5000@0a {
-+		compatible = "fsl,sgtl5000";
-+		reg = <0x0a>;
-+		clocks = <&clks 201>;
-+		VDDA-supply = <&reg_2p5v>;
-+		VDDIO-supply = <&reg_3p3v>;
-+		VDDD-supply = <&reg_1p8v>;
-+	};
-+
-+	polytouch: edt-ft5x06@38 {
-+		compatible = "edt,edt-ft5406";
-+		reg = <0x38>;
-+		pinctrl-names = "default";		
-+		pinctrl-0 = <&pinctrl_edt_ft5x06>;
-+		interrupt-parent = <&gpio5>;
-+		interrupts = <30 0>;	
-+		reset-gpios = <&gpio6 0 1>;
-+	};
-+
-+	adv7180: adv7180@21 {
-+		compatible = "adv,adv7180";
-+		reg = <0x21>;
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&pinctrl_ipu1_6>;
-+		clocks = <&clks 201>;
-+		clock-names = "csi_mclk";
-+		DOVDD-supply = <&reg_3p3v>; /* 3.3v, enabled via 2.8 VGEN6 */
-+		AVDD-supply = <&reg_3p3v>;  /* 1.8v */
-+		DVDD-supply = <&reg_3p3v>;  /* 1.8v */
-+		PVDD-supply = <&reg_3p3v>;  /* 1.8v */
-+		pwn-gpios = <&gpio3 19 0>;  /* put on not used pin */
-+		csi_id = <0>;
-+		mclk = <24000000>;
-+		mclk_source = <0>;
-+		cvbs = <1>;
-+	};
-+};
-+
-+&iomuxc {
-+
-+	pinctrl-assert-gpios = <&gpio1 2 GPIO_ACTIVE_HIGH>;
-+	
-+	hog {
-+		pinctrl_hog: hoggrp {
-+			fsl,pins = <
-+				MX6QDL_PAD_GPIO_2__GPIO1_IO02 0x1f059
-+				MX6QDL_PAD_EIM_D19__GPIO3_IO19 0x1f059 /* not used pin for ADV7180 driver compatibility */
-+			>;
-+		};
-+	};
-+};
-+
-+&iomuxc {
-+	touchpanel{
-+		pinctrl_edt_ft5x06:  edt-ft5x06grp  {
-+			fsl,pins = <
-+				MX6QDL_PAD_CSI0_DAT12__GPIO5_IO30 0x1b0b0 /*interrupt*/ 
-+				MX6QDL_PAD_CSI0_DAT14__GPIO6_IO00 0x1b0b0 /*reset edt*/
-+			>;
-+		};
-+	};
-+};
-+
 diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
 new file mode 100644
 index 0000000..34a2f49
