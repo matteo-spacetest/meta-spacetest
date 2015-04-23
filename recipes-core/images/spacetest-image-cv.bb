@@ -51,6 +51,8 @@ IMAGE_INSTALL += " \
     imx-test \
     imx-vpu \
     tslib \
+    opencv \
+    opencv-samples \
 "	
 
 CORE_IMAGE_EXTRA_INSTALL += " \
