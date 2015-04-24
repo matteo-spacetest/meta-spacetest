@@ -51,9 +51,12 @@ IMAGE_INSTALL += " \
     imx-test \
     imx-vpu \
     tslib \
-    opencv \
-    opencv-samples \
 "	
+
+# TODO:
+# Add the following packages below.
+#    opencv
+#    opencv-samples
 
 CORE_IMAGE_EXTRA_INSTALL += " \
     packagegroup-fsl-gstreamer-full \
