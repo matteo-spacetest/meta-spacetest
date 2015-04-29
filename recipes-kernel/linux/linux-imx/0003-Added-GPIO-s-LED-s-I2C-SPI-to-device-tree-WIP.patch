@@ -1,0 +1,231 @@
+From b08f9d62c796e0263dd4e5749a08eaac8a11be66 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Wed, 29 Apr 2015 15:08:51 +0200
+Subject: [PATCH] Added GPIO's, LED's, I2C, SPI to device tree (WIP!).
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts    |  183 +++++++++++++++++++++++++++++
+ arch/arm/boot/dts/imx6qdl-space20010.dtsi |   16 +--
+ 2 files changed, 191 insertions(+), 8 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index 4a168fa..af8f7a7 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -6,5 +6,188 @@
+ / {
+ 	model = "Space Carrier Board (code 20010) for Engicam i.CoreM6 Quad/Dual module";
+ 	compatible = "fsl,imx6-icore", "fsl,imx6q";
++
++//	gpio-keys {
++//
++//		compatible = "gpio-keys";
++//
++//		key1 {
++//			label = "key1";
++//			gpios = <&gpio5 14 0>;
++//			linux,code = <59>; /* KEY_F1 */
++//		};
++//
++//		key2 {
++//			label = "key2";
++//			gpios = <&gpio3  7 0>;
++//			linux,code = <60>; /* KEY_F2 */
++//		};
++//
++//		key3 {
++//			label = "key3";
++//			gpios = <&gpio2 19 0>;
++//			linux,code = <61>; /* KEY_F3 */
++//		};
++//
++//		key4 {
++//			label = "key4";
++//			gpios = <&gpio3 16 0>;
++//			linux,code = <62>; /* KEY_F4 */
++//		};
++//
++//		key5 {
++//			label = "key5";
++//			gpios = <&gpio5 15 0>;
++//			linux,code = <63>; /* KEY_F5 */
++//		};
++//	};
++
++
++	leds {
++		compatible = "gpio-leds";
++
++		red {
++			label = "red";
++			gpios = <&gpio4 15 0>;
++			default-state = "off";
++		};
++
++		green {
++			label = "green";
++			gpios = <&gpio1 4 0>;
++			default-state = "on";
++		};
++	};
++};
++
++&i2c2 {
++
++status = "okay";
++// TODO (This I2C is brought to a connector.)
++
++};
++
++&i2c3 {
++
++status = "okay";
++// TODO (I2C used to control the two cameras.)
++
++};
++
++// This SPI is brought to a connector.
++&ecspi1 {
++
++	fsl,spi-num-chipselects = <3>;
++	cs-gpios = <&gpio5 17 0 &gpio5 9 0 &gpio4 11 0>;
++	clock-frequency = <100000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_ecspi1_3>;
++	status = "okay";
++};
++
++// Used to communicate with the secondary MCU
++&ecspi3 {
++
++	fsl,spi-num-chipselects = <4>;
++	cs-gpios = <&gpio4 24 0 &gpio4 25 0 &gpio4 26 0 &gpio4 27 0>;
++	clock-frequency = <100000>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_ecspi3_2>;
++	status = "okay";
++};
++
++&iomuxc {
++
++	pinctrl-assert-gpios = <&gpio4 20 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>; /* "TON" signal (NU2 pin) */
++	pinctrl-assert-gpios = <&gpio5 16 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio4 16 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio5  7 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio5  5 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio4 28 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio4 18 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio1  3 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio1  6 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio1  9 GPIO_ACTIVE_LOW>;
++
++	hog {
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_DI0_PIN4__GPIO4_IO20      0x80000000  /* NU1  */
++				MX6QDL_PAD_EIM_D23__GPIO3_IO23       0x80000000  /* NU2  */
++				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16   0x80000000  /* NU3  */
++				MX6QDL_PAD_DI0_DISP_CLK__GPIO4_IO16  0x80000000  /* NU4  */
++				MX6QDL_PAD_DISP0_DAT17__GPIO5_IO11   0x80000000  /* NU5  */
++				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07   0x80000000  /* NU6  */
++				MX6QDL_PAD_DISP0_DAT11__GPIO5_IO05   0x80000000  /* NU7  */
++				MX6QDL_PAD_DISP0_DAT9__GPIO4_IO30    0x80000000  /* NU8  */
++				MX6QDL_PAD_DISP0_DAT7__GPIO4_IO28    0x80000000  /* NU9  */
++				MX6QDL_PAD_DI0_PIN2__GPIO4_IO18      0x80000000  /* NU10 */
++				MX6QDL_PAD_GPIO_3__GPIO1_IO03        0x80000000  /* NU11 */
++				MX6QDL_PAD_GPIO_6__GPIO1_IO06        0x80000000  /* NU12 */
++				MX6QDL_PAD_GPIO_9__GPIO1_IO09        0x80000000  /* NU13 */
++			>;
++		};
++	};
++};
++
++&iomuxc {
++
++	hog {
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000  /* ITS1  - linux gpio 142 */
++				MX6QDL_PAD_EIM_DA7__GPIO3_IO07      0x80000000  /* ITS2  - linux gpio  71 */
++				MX6QDL_PAD_EIM_A19__GPIO2_IO19      0x80000000  /* ITS3  - linux gpio  51 */
++				MX6QDL_PAD_EIM_D16__GPIO3_IO16      0x80000000  /* ITS4  - linux gpio  80 */
++				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000  /* ITS5  - linux gpio 143 */
++			>;
++		};
++	};
++};
++
++&iomuxc {
++
++	hog {
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_KEY_ROW4__GPIO4_IO15  0x80000000  /* LED10 - red */
++				MX6QDL_PAD_GPIO_4__GPIO1_IO04    0x80000000  /* LED20 - green */
++			>;
++		};
++	};
++};
++
++&iomuxc {
++
++	ecspi1 {
++		pinctrl_ecspi1_3: ecspi1grp-3 {
++			fsl,pins = <
++				MX6QDL_PAD_CSI0_DAT6__ECSPI1_MISO   0x100b1
++				MX6QDL_PAD_CSI0_DAT5__ECSPI1_MOSI   0x100b1
++				MX6QDL_PAD_CSI0_DAT4__ECSPI1_SCLK   0x100b1
++				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x80000000  /* SS1_0 */
++				MX6QDL_PAD_DISP0_DAT15__GPIO5_IO09  0x80000000  /* SS1_1 */
++				MX6QDL_PAD_KEY_ROW2__GPIO4_IO11     0x80000000  /* SS1_2 */
++			>;
++		};
++	};
++
++	ecspi3 {
++		pinctrl_ecspi3_2: ecspi3grp-2 {
++			fsl,pins = <
++				MX6QDL_PAD_DISP0_DAT2__ECSPI3_MISO 0x100b1
++				MX6QDL_PAD_DISP0_DAT1__ECSPI3_MOSI 0x100b1
++				MX6QDL_PAD_DISP0_DAT0__ECSPI3_SCLK 0x100b1
++				MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24  0x80000000  /* SS3_0 */
++				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25  0x80000000  /* SS3_1 */
++				MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26  0x80000000  /* SS3_2 */
++				MX6QDL_PAD_DISP0_DAT6__GPIO4_IO27  0x80000000  /* SS3_3 */
++			>;
++		};
++	};
++
+ };
+ 
+diff --git a/arch/arm/boot/dts/imx6qdl-space20010.dtsi b/arch/arm/boot/dts/imx6qdl-space20010.dtsi
+index 64f8b24..4107e1f 100644
+--- a/arch/arm/boot/dts/imx6qdl-space20010.dtsi
++++ b/arch/arm/boot/dts/imx6qdl-space20010.dtsi
+@@ -185,12 +185,12 @@
+ 	status = "okay";
+ };
+ 
+-//// Used for wifi module (?)
+-//&usdhc2 {
+-//	pinctrl-names = "default";
+-//	pinctrl-0 = <&pinctrl_usdhc2_2>;
+-//	no-1-8-v;
+-//	non-removable;
+-//	status = "okay";
+-//};
++// Used for wifi module (?)
++&usdhc2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_usdhc2_2>;
++	no-1-8-v;
++	non-removable;
++	status = "okay";
++};
+ 
+-- 
+1.7.9.5
+
