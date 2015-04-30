@@ -1,0 +1,106 @@
+From a363ae5e209e2c1387a2924bdd30be3874a5cd07 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Thu, 30 Apr 2015 10:08:57 +0200
+Subject: [PATCH] Init other GPIO's (camera, illuminators, CAN transceiver).
+
+---
+ board/engicam/mx6_icore/mx6_icore.c |   77 ++++++++++++++++++++++++++++-------
+ 1 file changed, 63 insertions(+), 14 deletions(-)
+
+diff --git a/board/engicam/mx6_icore/mx6_icore.c b/board/engicam/mx6_icore/mx6_icore.c
+index 108d203..31dd69b 100644
+--- a/board/engicam/mx6_icore/mx6_icore.c
++++ b/board/engicam/mx6_icore/mx6_icore.c
+@@ -974,26 +974,75 @@ static void spc20010_setup_spi_ss_pins(void)
+ 	gpio_direction_output(SPC20010_SS3_3, 1);
+ }
+ 
+-// MOD-MB-20150427
+-// END of changes for Space 20010 carrier board. ///////////////////////////////
++// OTHER GPIO'S (CAMERA, ILLUMINATORS AND CAN TRANSCEIVER)
+ 
+-int board_early_init_f(void)
++#define OTHER_GPIOS_PINS_CTRL  NO_PAD_CTRL
++
++iomux_v3_cfg_t const other_gpios_pins_pads[] = {
++
++	MX6_PAD_GPIO_0__GPIO_1_0       | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // AFLASH
++	MX6_PAD_DISP0_DAT12__GPIO_5_6  | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // PFLASH
++	//
++	MX6_PAD_DI0_PIN3__GPIO_4_19    | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // RESN
++	MX6_PAD_DISP0_DAT16__GPIO_5_10 | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // TRIG
++	MX6_PAD_DISP0_DAT14__GPIO_5_8  | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // OEN
++	MX6_PAD_GPIO_7__GPIO_1_7       | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // STBY
++	//
++	MX6_PAD_DISP0_DAT8__GPIO_4_29  | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // ILL1
++	MX6_PAD_DISP0_DAT10__GPIO_4_31 | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // ILL2
++	MX6_PAD_CSI0_DAT7__GPIO_5_25   | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // ILL3
++	MX6_PAD_GPIO_2__GPIO_1_2       | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // ILL4
++	//
++	MX6_PAD_DI0_PIN15__GPIO_4_17   | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // RS1
++
++};
++
++#define SPC20010_AFLASH  IMX_GPIO_NR(1,  0)
++#define SPC20010_PFLASH  IMX_GPIO_NR(5,  6)
++//
++#define SPC20010_RESN    IMX_GPIO_NR(4, 19)
++#define SPC20010_TRIG    IMX_GPIO_NR(5, 10)
++#define SPC20010_OEN     IMX_GPIO_NR(5,  8)
++#define SPC20010_STBY    IMX_GPIO_NR(1,  7)
++//
++#define SPC20010_ILL1    IMX_GPIO_NR(4, 29)
++#define SPC20010_ILL2    IMX_GPIO_NR(4, 31)
++#define SPC20010_ILL3    IMX_GPIO_NR(5, 25)
++#define SPC20010_ILL4    IMX_GPIO_NR(1, 2)
++//
++#define SPC20010_RS1     IMX_GPIO_NR(4, 17)
++
++static void spc20010_setup_other_gpios_pins(void)
+ {
+-	// MOD-MB-20150427
+-	// Changes for Space 20010 carrier board.
+-	spc20010_setup_not_used_pins();
++	imx_iomux_v3_setup_multiple_pads(other_gpios_pins_pads, ARRAY_SIZE(other_gpios_pins_pads));
+ 
+-	// MOD-MB-20150427
+-	// Handle LED's.
+-	spc20010_setup_led_pins();
++	gpio_direction_input(SPC20010_AFLASH);
++	gpio_direction_input(SPC20010_PFLASH);
+ 
+-	// MOD-MB-20150427
+-	// Handle keypad's pins.
+-	spc20010_setup_keypad_pins();
++	gpio_direction_output(SPC20010_RESN , 1);
++	gpio_direction_output(SPC20010_TRIG , 0);
++	gpio_direction_output(SPC20010_OEN  , 0);
++	gpio_direction_output(SPC20010_STBY , 1);
++
++	gpio_direction_output(SPC20010_ILL1 , 0);
++	gpio_direction_output(SPC20010_ILL2 , 0);
++	gpio_direction_output(SPC20010_ILL3 , 0);
++	gpio_direction_output(SPC20010_ILL4 , 0);
+ 
++	gpio_direction_output(SPC20010_RS1  , 1);
++}
++
++// MOD-MB-20150427
++// END of changes for Space 20010 carrier board. ///////////////////////////////
++
++int board_early_init_f(void)
++{
+ 	// MOD-MB-20150427
+-	// Handle SPI slave selects.
+-	spc20010_setup_spi_ss_pins();
++	spc20010_setup_not_used_pins();     // raise TON pin as soon as possible
++	spc20010_setup_led_pins();          // handle LED's
++	spc20010_setup_keypad_pins();       // handle keypad's pins
++	spc20010_setup_spi_ss_pins();       // handle SPI slave selects
++	spc20010_setup_other_gpios_pins();  // handle other gpio's
+ 
+ 	setup_iomux_uart();
+ 
+-- 
+1.7.9.5
+
