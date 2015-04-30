@@ -1,0 +1,248 @@
+From b24ec8c209877c0caa9ebf5e154d7f59f37e2a8b Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Thu, 30 Apr 2015 10:48:08 +0200
+Subject: [PATCH] Modified DTS to handle other board GPIO's (camera,
+ illuminators, CAN transceiver).
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts |  135 ++++++++++++++++++++------------
+ 1 file changed, 83 insertions(+), 52 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index 494afd5..4c27c8d 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -14,31 +14,31 @@
+ //		key1 {
+ //			label = "key1";
+ //			gpios = <&gpio5 14 0>;
+-//			linux,code = <59>; /* KEY_F1 */
++//			linux,code = <59>; // KEY_F1
+ //		};
+ //
+ //		key2 {
+ //			label = "key2";
+ //			gpios = <&gpio3  7 0>;
+-//			linux,code = <60>; /* KEY_F2 */
++//			linux,code = <60>; // KEY_F2
+ //		};
+ //
+ //		key3 {
+ //			label = "key3";
+ //			gpios = <&gpio2 19 0>;
+-//			linux,code = <61>; /* KEY_F3 */
++//			linux,code = <61>; // KEY_F3
+ //		};
+ //
+ //		key4 {
+ //			label = "key4";
+ //			gpios = <&gpio3 16 0>;
+-//			linux,code = <62>; /* KEY_F4 */
++//			linux,code = <62>; // KEY_F4
+ //		};
+ //
+ //		key5 {
+ //			label = "key5";
+ //			gpios = <&gpio5 15 0>;
+-//			linux,code = <63>; /* KEY_F5 */
++//			linux,code = <63>; // KEY_F5
+ //		};
+ //	};
+ 
+@@ -63,14 +63,14 @@
+ &i2c2 {
+ 
+ status = "okay";
+-// TODO (This I2C is brought to a connector.)
++// TBD - TODO (This I2C is brought to a connector.)
+ 
+ };
+ 
+ &i2c3 {
+ 
+ status = "okay";
+-// TODO (I2C used to control the two cameras.)
++// TBD - TODO (I2C used to control the two cameras.)
+ 
+ };
+ 
+@@ -79,7 +79,7 @@ status = "okay";
+ 
+ 	fsl,spi-num-chipselects = <3>;
+ 	cs-gpios = <&gpio5 17 0>, <&gpio5 9 0>, <&gpio4 11 0>;
+-	clock-frequency = <30000000>;
++	clock-frequency = <30000000>; // TBD - which value?
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_ecspi1_3>;
+ 	status = "okay";
+@@ -97,7 +97,7 @@ status = "okay";
+ 
+ 	fsl,spi-num-chipselects = <4>;
+ 	cs-gpios = <&gpio4 24 0>, <&gpio4 25 0>, <&gpio4 26 0>, <&gpio4 27 0>;
+-	clock-frequency = <30000000>;
++	clock-frequency = <30000000>; // TBD - which value?
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_ecspi3_2>;
+ 	status = "okay";
+@@ -112,36 +112,36 @@ status = "okay";
+ 
+ &iomuxc {
+ 
+-	pinctrl-assert-gpios = <&gpio4 20 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>; /* "TON" signal (NU2 pin) */
+-	pinctrl-assert-gpios = <&gpio5 16 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio4 16 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio5  7 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio5  5 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio4 28 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio4 18 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio1  3 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio1  6 GPIO_ACTIVE_LOW>;
+-	pinctrl-assert-gpios = <&gpio1  9 GPIO_ACTIVE_LOW>;
++	pinctrl-assert-gpios = <&gpio4 20 GPIO_ACTIVE_LOW>;  // NU1
++	pinctrl-assert-gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>; // NU2 ("TON" signal to be held high)
++	pinctrl-assert-gpios = <&gpio5 16 GPIO_ACTIVE_LOW>;  // NU3
++	pinctrl-assert-gpios = <&gpio4 16 GPIO_ACTIVE_LOW>;  // NU4
++	pinctrl-assert-gpios = <&gpio5 11 GPIO_ACTIVE_LOW>;  // NU5
++	pinctrl-assert-gpios = <&gpio5  7 GPIO_ACTIVE_LOW>;  // NU6
++	pinctrl-assert-gpios = <&gpio5  5 GPIO_ACTIVE_LOW>;  // NU7
++	pinctrl-assert-gpios = <&gpio4 30 GPIO_ACTIVE_LOW>;  // NU8
++	pinctrl-assert-gpios = <&gpio4 28 GPIO_ACTIVE_LOW>;  // NU9
++	pinctrl-assert-gpios = <&gpio4 18 GPIO_ACTIVE_LOW>;  // NU10
++	pinctrl-assert-gpios = <&gpio1  3 GPIO_ACTIVE_LOW>;  // NU11
++	pinctrl-assert-gpios = <&gpio1  6 GPIO_ACTIVE_LOW>;  // NU12
++	pinctrl-assert-gpios = <&gpio1  9 GPIO_ACTIVE_LOW>;  // NU13
+ 
+ 	hog {
+ 		pinctrl_hog: hoggrp {
+ 			fsl,pins = <
+-				MX6QDL_PAD_DI0_PIN4__GPIO4_IO20      0x80000000  /* NU1  */
+-				MX6QDL_PAD_EIM_D23__GPIO3_IO23       0x80000000  /* NU2  */
+-				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16   0x80000000  /* NU3  */
+-				MX6QDL_PAD_DI0_DISP_CLK__GPIO4_IO16  0x80000000  /* NU4  */
+-				MX6QDL_PAD_DISP0_DAT17__GPIO5_IO11   0x80000000  /* NU5  */
+-				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07   0x80000000  /* NU6  */
+-				MX6QDL_PAD_DISP0_DAT11__GPIO5_IO05   0x80000000  /* NU7  */
+-				MX6QDL_PAD_DISP0_DAT9__GPIO4_IO30    0x80000000  /* NU8  */
+-				MX6QDL_PAD_DISP0_DAT7__GPIO4_IO28    0x80000000  /* NU9  */
+-				MX6QDL_PAD_DI0_PIN2__GPIO4_IO18      0x80000000  /* NU10 */
+-				MX6QDL_PAD_GPIO_3__GPIO1_IO03        0x80000000  /* NU11 */
+-				MX6QDL_PAD_GPIO_6__GPIO1_IO06        0x80000000  /* NU12 */
+-				MX6QDL_PAD_GPIO_9__GPIO1_IO09        0x80000000  /* NU13 */
++				MX6QDL_PAD_DI0_PIN4__GPIO4_IO20      0x80000000  // NU1
++				MX6QDL_PAD_EIM_D23__GPIO3_IO23       0x80000000  // NU2
++				MX6QDL_PAD_DISP0_DAT22__GPIO5_IO16   0x80000000  // NU3
++				MX6QDL_PAD_DI0_DISP_CLK__GPIO4_IO16  0x80000000  // NU4
++				MX6QDL_PAD_DISP0_DAT17__GPIO5_IO11   0x80000000  // NU5
++				MX6QDL_PAD_DISP0_DAT13__GPIO5_IO07   0x80000000  // NU6
++				MX6QDL_PAD_DISP0_DAT11__GPIO5_IO05   0x80000000  // NU7
++				MX6QDL_PAD_DISP0_DAT9__GPIO4_IO30    0x80000000  // NU8
++				MX6QDL_PAD_DISP0_DAT7__GPIO4_IO28    0x80000000  // NU9
++				MX6QDL_PAD_DI0_PIN2__GPIO4_IO18      0x80000000  // NU10
++				MX6QDL_PAD_GPIO_3__GPIO1_IO03        0x80000000  // NU11
++				MX6QDL_PAD_GPIO_6__GPIO1_IO06        0x80000000  // NU12
++				MX6QDL_PAD_GPIO_9__GPIO1_IO09        0x80000000  // NU13
+ 			>;
+ 		};
+ 	};
+@@ -152,11 +152,11 @@ status = "okay";
+ 	hog {
+ 		pinctrl_hog: hoggrp {
+ 			fsl,pins = <
+-				MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000  /* ITS1  - linux gpio 142 */
+-				MX6QDL_PAD_EIM_DA7__GPIO3_IO07      0x80000000  /* ITS2  - linux gpio  71 */
+-				MX6QDL_PAD_EIM_A19__GPIO2_IO19      0x80000000  /* ITS3  - linux gpio  51 */
+-				MX6QDL_PAD_EIM_D16__GPIO3_IO16      0x80000000  /* ITS4  - linux gpio  80 */
+-				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000  /* ITS5  - linux gpio 143 */
++				MX6QDL_PAD_DISP0_DAT20__GPIO5_IO14  0x80000000  // ITS1  - linux gpio 142
++				MX6QDL_PAD_EIM_DA7__GPIO3_IO07      0x80000000  // ITS2  - linux gpio  71
++				MX6QDL_PAD_EIM_A19__GPIO2_IO19      0x80000000  // ITS3  - linux gpio  51
++				MX6QDL_PAD_EIM_D16__GPIO3_IO16      0x80000000  // ITS4  - linux gpio  80
++				MX6QDL_PAD_DISP0_DAT21__GPIO5_IO15  0x80000000  // ITS5  - linux gpio 143
+ 			>;
+ 		};
+ 	};
+@@ -167,8 +167,8 @@ status = "okay";
+ 	hog {
+ 		pinctrl_hog: hoggrp {
+ 			fsl,pins = <
+-				MX6QDL_PAD_KEY_ROW4__GPIO4_IO15  0x80000000  /* LED10 - red */
+-				MX6QDL_PAD_GPIO_4__GPIO1_IO04    0x80000000  /* LED20 - green */
++				MX6QDL_PAD_KEY_ROW4__GPIO4_IO15  0x80000000  // LED10 - red
++				MX6QDL_PAD_GPIO_4__GPIO1_IO04    0x80000000  // LED20 - green
+ 			>;
+ 		};
+ 	};
+@@ -182,9 +182,9 @@ status = "okay";
+ 				MX6QDL_PAD_CSI0_DAT6__ECSPI1_MISO   0x100b1
+ 				MX6QDL_PAD_CSI0_DAT5__ECSPI1_MOSI   0x100b1
+ 				MX6QDL_PAD_CSI0_DAT4__ECSPI1_SCLK   0x100b1
+-				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x80000000  /* SS1_0 */
+-				MX6QDL_PAD_DISP0_DAT15__GPIO5_IO09  0x80000000  /* SS1_1 */
+-				MX6QDL_PAD_KEY_ROW2__GPIO4_IO11     0x80000000  /* SS1_2 */
++				MX6QDL_PAD_DISP0_DAT23__GPIO5_IO17  0x80000000  // SS1_0
++				MX6QDL_PAD_DISP0_DAT15__GPIO5_IO09  0x80000000  // SS1_1
++				MX6QDL_PAD_KEY_ROW2__GPIO4_IO11     0x80000000  // SS1_2
+ 			>;
+ 		};
+ 	};
+@@ -192,16 +192,47 @@ status = "okay";
+ 	ecspi3 {
+ 		pinctrl_ecspi3_2: ecspi3grp-2 {
+ 			fsl,pins = <
+-				MX6QDL_PAD_DISP0_DAT2__ECSPI3_MISO 0x100b1
+-				MX6QDL_PAD_DISP0_DAT1__ECSPI3_MOSI 0x100b1
+-				MX6QDL_PAD_DISP0_DAT0__ECSPI3_SCLK 0x100b1
+-				MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24  0x80000000  /* SS3_0 */
+-				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25  0x80000000  /* SS3_1 */
+-				MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26  0x80000000  /* SS3_2 */
+-				MX6QDL_PAD_DISP0_DAT6__GPIO4_IO27  0x80000000  /* SS3_3 */
++				MX6QDL_PAD_DISP0_DAT2__ECSPI3_MISO  0x100b1
++				MX6QDL_PAD_DISP0_DAT1__ECSPI3_MOSI  0x100b1
++				MX6QDL_PAD_DISP0_DAT0__ECSPI3_SCLK  0x100b1
++				MX6QDL_PAD_DISP0_DAT3__GPIO4_IO24   0x80000000  // SS3_0
++				MX6QDL_PAD_DISP0_DAT4__GPIO4_IO25   0x80000000  // SS3_1
++				MX6QDL_PAD_DISP0_DAT5__GPIO4_IO26   0x80000000  // SS3_2
++				MX6QDL_PAD_DISP0_DAT6__GPIO4_IO27   0x80000000  // SS3_3
+ 			>;
+ 		};
+ 	};
+ 
+ };
+ 
++&iomuxc {
++
++	pinctrl-assert-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;  // RESN
++	pinctrl-assert-gpios = <&gpio5 10 GPIO_ACTIVE_LOW>;   // TRIG
++	pinctrl-assert-gpios = <&gpio5  8 GPIO_ACTIVE_LOW>;   // OEN
++	pinctrl-assert-gpios = <&gpio1  7 GPIO_ACTIVE_HIGH>;  // STBY
++	pinctrl-assert-gpios = <&gpio4 29 GPIO_ACTIVE_LOW>;   // ILL1
++	pinctrl-assert-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;   // ILL2
++	pinctrl-assert-gpios = <&gpio5 25 GPIO_ACTIVE_LOW>;   // ILL3
++	pinctrl-assert-gpios = <&gpio1  2 GPIO_ACTIVE_LOW>;   // ILL4
++	pinctrl-assert-gpios = <&gpio4 17 GPIO_ACTIVE_HIGH>;  // RS1
++
++	hog {
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_GPIO_0__GPIO1_IO00       0x80000000  // AFLASH
++				MX6QDL_PAD_DISP0_DAT12__GPIO5_IO06  0x80000000  // PFLASH
++				MX6QDL_PAD_DI0_PIN3__GPIO4_IO19     0x80000000  // RESN
++				MX6QDL_PAD_DISP0_DAT16__GPIO5_IO10  0x80000000  // TRIG
++				MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08  0x80000000  // OEN
++				MX6QDL_PAD_GPIO_7__GPIO1_IO07       0x80000000  // STBY
++				MX6QDL_PAD_DISP0_DAT8__GPIO4_IO29   0x80000000  // ILL1
++				MX6QDL_PAD_DISP0_DAT10__GPIO4_IO31  0x80000000  // ILL2
++				MX6QDL_PAD_CSI0_DAT7__GPIO5_IO25    0x80000000  // ILL3
++				MX6QDL_PAD_GPIO_2__GPIO1_IO02       0x80000000  // ILL4
++				MX6QDL_PAD_DI0_PIN15__GPIO4_IO17    0x80000000  // RS1
++			>;
++		};
++	};
++};
++
+-- 
+1.7.9.5
+

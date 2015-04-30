@@ -1,0 +1,57 @@
+From d9199e74b6bec3d8d80268673b08bad662537567 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Thu, 30 Apr 2015 10:25:59 +0200
+Subject: [PATCH] Added SPIDEV to device tree.
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts |   22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index af8f7a7..494afd5 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -78,22 +78,36 @@ status = "okay";
+ &ecspi1 {
+ 
+ 	fsl,spi-num-chipselects = <3>;
+-	cs-gpios = <&gpio5 17 0 &gpio5 9 0 &gpio4 11 0>;
+-	clock-frequency = <100000>;
++	cs-gpios = <&gpio5 17 0>, <&gpio5 9 0>, <&gpio4 11 0>;
++	clock-frequency = <30000000>;
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_ecspi1_3>;
+ 	status = "okay";
++
++	spidev@0x0100 {
++		compatible = "spidev";
++		spi-max-frequency = <30000000>;
++		reg = <0>;
++	};
++
+ };
+ 
+ // Used to communicate with the secondary MCU
+ &ecspi3 {
+ 
+ 	fsl,spi-num-chipselects = <4>;
+-	cs-gpios = <&gpio4 24 0 &gpio4 25 0 &gpio4 26 0 &gpio4 27 0>;
+-	clock-frequency = <100000>;
++	cs-gpios = <&gpio4 24 0>, <&gpio4 25 0>, <&gpio4 26 0>, <&gpio4 27 0>;
++	clock-frequency = <30000000>;
+ 	pinctrl-names = "default";
+ 	pinctrl-0 = <&pinctrl_ecspi3_2>;
+ 	status = "okay";
++
++	spidev@0x0300 {
++		compatible = "spidev";
++		spi-max-frequency = <30000000>;
++		reg = <0>;
++	};
++
+ };
+ 
+ &iomuxc {
+-- 
+1.7.9.5
+
