@@ -1,0 +1,139 @@
+From 7136b3b11df516b167a31816798d6c01e8ee9350 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Mon, 4 May 2015 10:47:38 +0200
+Subject: [PATCH] Serial EEPROM added to DTS.
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts |   83 +++++++++++++++++++++-----------
+ 1 file changed, 55 insertions(+), 28 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index 4c27c8d..c319f00 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -14,35 +14,50 @@
+ //		key1 {
+ //			label = "key1";
+ //			gpios = <&gpio5 14 0>;
+-//			linux,code = <59>; // KEY_F1
++//			linux,code = <0x3f>; // KEY_F5
+ //		};
+ //
+-//		key2 {
+-//			label = "key2";
+-//			gpios = <&gpio3  7 0>;
+-//			linux,code = <60>; // KEY_F2
+-//		};
++//	};
++
++//	matrix-keypad {
+ //
+-//		key3 {
+-//			label = "key3";
+-//			gpios = <&gpio2 19 0>;
+-//			linux,code = <61>; // KEY_F3
+-//		};
++//		compatible = "gpio-matrix-keypad";
++////		debounce-delay-ms = <5>;
++////		col-scan-delay-us = <2>;
+ //
+-//		key4 {
+-//			label = "key4";
+-//			gpios = <&gpio3 16 0>;
+-//			linux,code = <62>; // KEY_F4
+-//		};
++////		row-gpios = <&gpio3  7 0    /* ITS2 */
++////		             &gpio3 16 0>;  /* ITS4 */
++////
++////		col-gpios = <&gpio2 19 0    /* ITS3 */
++////		             &gpio5 15 0>;  /* ITS5 */
++////
++////		linux,keymap = <0x0000003e    /* KEY_F4 (GREEN) */
++////		                0x0001003b    /* KEY_F1 (RED) */
++////		                0x0100003d    /* KEY_F3 (BLUE) */
++////		                0x0101003c>;  /* KEY_F2 (YELLOW) */
++//
++//
++//
++//		debounce-delay-ms = <20>;
++//		col-scan-delay-us = <10000000>;
++////		linux,no-autorepeat;
++//
++//		row-gpios = <&gpio2 19 0    /* ITS3 */
++//		             &gpio5 15 0>;  /* ITS5 */
++//
++//		col-gpios = <&gpio3  7 1    /* ITS2 */
++//		             &gpio3 16 1>;  /* ITS4 */
++//
++//		linux,keymap = <0x0000003e    /* KEY_F4 (GREEN) */
++//		                0x0001003b    /* KEY_F1 (RED) */
++//		                0x0100003d    /* KEY_F3 (BLUE) */
++//		                0x0101003c>;  /* KEY_F2 (YELLOW) */
++//
++//		keypad,num-rows = <2>;
++//		keypad,num-columns = <2>;
+ //
+-//		key5 {
+-//			label = "key5";
+-//			gpios = <&gpio5 15 0>;
+-//			linux,code = <63>; // KEY_F5
+-//		};
+ //	};
+ 
+-
+ 	leds {
+ 		compatible = "gpio-leds";
+ 
+@@ -62,15 +77,27 @@
+ 
+ &i2c2 {
+ 
+-status = "okay";
+-// TBD - TODO (This I2C is brought to a connector.)
++	status = "okay";
++	// TBD - TODO (This I2C is brought to a connector.)
+ 
+ };
+ 
+ &i2c3 {
+ 
+-status = "okay";
+-// TBD - TODO (I2C used to control the two cameras.)
++	status = "okay";
++	// TBD - TODO (I2C used to control the two cameras.)
++
++	eeprom@54 {
++		compatible = "cypress,24c04";
++		reg = <0x54>;
++//		pagesize = <256>;
++	};
++
++	eeprom@56 {
++		compatible = "cypress,24c04";
++		reg = <0x56>;
++//		pagesize = <256>;
++	};
+ 
+ };
+ 
+@@ -210,7 +237,7 @@ status = "okay";
+ 	pinctrl-assert-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;  // RESN
+ 	pinctrl-assert-gpios = <&gpio5 10 GPIO_ACTIVE_LOW>;   // TRIG
+ 	pinctrl-assert-gpios = <&gpio5  8 GPIO_ACTIVE_LOW>;   // OEN
+-	pinctrl-assert-gpios = <&gpio1  7 GPIO_ACTIVE_HIGH>;  // STBY
++	pinctrl-assert-gpios = <&gpio1  7 GPIO_ACTIVE_LOW>;   // STBY
+ 	pinctrl-assert-gpios = <&gpio4 29 GPIO_ACTIVE_LOW>;   // ILL1
+ 	pinctrl-assert-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;   // ILL2
+ 	pinctrl-assert-gpios = <&gpio5 25 GPIO_ACTIVE_LOW>;   // ILL3
+@@ -222,7 +249,7 @@ status = "okay";
+ 			fsl,pins = <
+ 				MX6QDL_PAD_GPIO_0__GPIO1_IO00       0x80000000  // AFLASH
+ 				MX6QDL_PAD_DISP0_DAT12__GPIO5_IO06  0x80000000  // PFLASH
+-				MX6QDL_PAD_DI0_PIN3__GPIO4_IO19     0x80000000  // RESN
++				MX6QDL_PAD_DI0_PIN3__GPIO4_IO19     0x0000b8b0  // RESN - set as open-drain output
+ 				MX6QDL_PAD_DISP0_DAT16__GPIO5_IO10  0x80000000  // TRIG
+ 				MX6QDL_PAD_DISP0_DAT14__GPIO5_IO08  0x80000000  // OEN
+ 				MX6QDL_PAD_GPIO_7__GPIO1_IO07       0x80000000  // STBY
+-- 
+1.7.9.5
+

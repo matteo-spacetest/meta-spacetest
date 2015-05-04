@@ -1,0 +1,61 @@
+From 34be7bd663da999e6362650659fda08eb5e270c2 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Thu, 30 Apr 2015 12:35:30 +0200
+Subject: [PATCH] Pin STBY must stay low, and pin RESN must be an open-drain
+ output.
+
+---
+ board/engicam/mx6_icore/mx6_icore.c |   25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/board/engicam/mx6_icore/mx6_icore.c b/board/engicam/mx6_icore/mx6_icore.c
+index 31dd69b..b42d6b7 100644
+--- a/board/engicam/mx6_icore/mx6_icore.c
++++ b/board/engicam/mx6_icore/mx6_icore.c
+@@ -978,12 +978,33 @@ static void spc20010_setup_spi_ss_pins(void)
+ 
+ #define OTHER_GPIOS_PINS_CTRL  NO_PAD_CTRL
+ 
++// Pad configuration
++//
++// Bit | 31 30 29 28 27 26 25 24 23 22 21 20 19 18 17 |  16 |
++//     |                                              | HYS |
++// Rst |  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0 |   0 |
++//
++// Bit | 15 14 |  13 |  12 |  11 | 10 9 8 |   7 6 | 5 4 3 | 2 1 |   0 |
++//     |   PUS | PUE | PKE | ODE |      0 | SPEED |   DSE |   0 | SRE |
++// Rst |  1  0 |   1 |   1 |   0 |  0 0 0 |   1 0 | 1 1 0 | 0 0 |   1 |
++//
++#define SPC20010_RESN_PAD_CTRL \
++(                              \
++	PAD_CTL_PUS_100K_UP |      \
++	PAD_CTL_PUE         |      \
++	PAD_CTL_PKE         |      \
++	PAD_CTL_ODE         |      \
++	PAD_CTL_SPEED_MED   |      \
++	PAD_CTL_DSE_40ohm   |      \
++	PAD_CTL_SRE_SLOW           \
++)
++
+ iomux_v3_cfg_t const other_gpios_pins_pads[] = {
+ 
+ 	MX6_PAD_GPIO_0__GPIO_1_0       | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // AFLASH
+ 	MX6_PAD_DISP0_DAT12__GPIO_5_6  | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // PFLASH
+ 	//
+-	MX6_PAD_DI0_PIN3__GPIO_4_19    | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // RESN
++	MX6_PAD_DI0_PIN3__GPIO_4_19    | MUX_PAD_CTRL(SPC20010_RESN_PAD_CTRL), // RESN - set as open-drain output
+ 	MX6_PAD_DISP0_DAT16__GPIO_5_10 | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // TRIG
+ 	MX6_PAD_DISP0_DAT14__GPIO_5_8  | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // OEN
+ 	MX6_PAD_GPIO_7__GPIO_1_7       | MUX_PAD_CTRL(OTHER_GPIOS_PINS_CTRL), // STBY
+@@ -1022,7 +1043,7 @@ static void spc20010_setup_other_gpios_pins(void)
+ 	gpio_direction_output(SPC20010_RESN , 1);
+ 	gpio_direction_output(SPC20010_TRIG , 0);
+ 	gpio_direction_output(SPC20010_OEN  , 0);
+-	gpio_direction_output(SPC20010_STBY , 1);
++	gpio_direction_output(SPC20010_STBY , 0);
+ 
+ 	gpio_direction_output(SPC20010_ILL1 , 0);
+ 	gpio_direction_output(SPC20010_ILL2 , 0);
+-- 
+1.7.9.5
+
