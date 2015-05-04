@@ -1,0 +1,33 @@
+From 66187f28a133312ba0e8e85872660909f1aeb6a9 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Mon, 4 May 2015 17:20:24 +0200
+Subject: [PATCH] WF111 reset pin handled.
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts |   13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index c319f00..80c26d5 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -263,3 +263,16 @@
+ 	};
+ };
+ 
++&iomuxc {
++
++	pinctrl-assert-gpios = <&gpio5 2 GPIO_ACTIVE_HIGH>;  // WIFI_RSN
++
++	hog {
++		pinctrl_hog: hoggrp {
++			fsl,pins = <
++				MX6QDL_PAD_EIM_A25__GPIO5_IO02  0x80000000  // WIFI_RSN
++			>;
++		};
++	};
++};
++
+-- 
+1.7.9.5
+

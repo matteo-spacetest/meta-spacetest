@@ -1,0 +1,48 @@
+From 81883a6b34dda7cfa2ef40e3e672f1b1642d9ad6 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Mon, 4 May 2015 17:19:48 +0200
+Subject: [PATCH] WF111 reset pin handled.
+
+---
+ board/engicam/mx6_icore/mx6_icore.c |   18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/board/engicam/mx6_icore/mx6_icore.c b/board/engicam/mx6_icore/mx6_icore.c
+index b42d6b7..99896d9 100644
+--- a/board/engicam/mx6_icore/mx6_icore.c
++++ b/board/engicam/mx6_icore/mx6_icore.c
+@@ -1053,6 +1053,23 @@ static void spc20010_setup_other_gpios_pins(void)
+ 	gpio_direction_output(SPC20010_RS1  , 1);
+ }
+ 
++// WF111 (wifi module by Bluegiga) - GPIO used as active-low reset
++
++#define WF111_RSTN_PIN_CTRL  NO_PAD_CTRL
++
++iomux_v3_cfg_t const wf111_rstn_pin_pads[] = {
++	MX6_PAD_EIM_A25__GPIO_5_2 | MUX_PAD_CTRL(WF111_RSTN_PIN_CTRL), // WIFI_RSN
++};
++
++#define SPC20010_WF111_RSTN_PIN  IMX_GPIO_NR(5, 2)
++
++static void spc20010_setup_wf111_rstn_pin(void)
++{
++	imx_iomux_v3_setup_multiple_pads(wf111_rstn_pin_pads, ARRAY_SIZE(wf111_rstn_pin_pads));
++
++	gpio_direction_output(SPC20010_WF111_RSTN_PIN, 1);
++}
++
+ // MOD-MB-20150427
+ // END of changes for Space 20010 carrier board. ///////////////////////////////
+ 
+@@ -1064,6 +1081,7 @@ int board_early_init_f(void)
+ 	spc20010_setup_keypad_pins();       // handle keypad's pins
+ 	spc20010_setup_spi_ss_pins();       // handle SPI slave selects
+ 	spc20010_setup_other_gpios_pins();  // handle other gpio's
++	spc20010_setup_wf111_rstn_pin();    // handle WF111 active-low reset
+ 
+ 	setup_iomux_uart();
+ 
+-- 
+1.7.9.5
+
