@@ -51,6 +51,11 @@ IMAGE_INSTALL += " \
     imx-test \
     imx-vpu \
     tslib \
+    iproute2 \
+    cantest \
+    wf111-driver \
+    wireless-tools \
+    wpa-supplicant \
 "	
 
 # TODO:
