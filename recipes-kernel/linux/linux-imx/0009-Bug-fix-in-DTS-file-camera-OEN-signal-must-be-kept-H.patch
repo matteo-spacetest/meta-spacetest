@@ -1,0 +1,25 @@
+From 143888af27660b67a458942bd78930bcde65a858 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Mon, 11 May 2015 11:44:47 +0200
+Subject: [PATCH] Bug fix in DTS file: camera OEN signal must be kept HIGH.
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index ba2b085..730ef5a 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -312,7 +312,7 @@
+ 
+ 	pinctrl-assert-gpios = <&gpio4 19 GPIO_ACTIVE_HIGH>;  // RESN
+ 	pinctrl-assert-gpios = <&gpio5 10 GPIO_ACTIVE_LOW>;   // TRIG
+-	pinctrl-assert-gpios = <&gpio5  8 GPIO_ACTIVE_LOW>;   // OEN
++	pinctrl-assert-gpios = <&gpio5  8 GPIO_ACTIVE_HIGH>;  // OEN
+ 	pinctrl-assert-gpios = <&gpio1  7 GPIO_ACTIVE_LOW>;   // STBY
+ 	pinctrl-assert-gpios = <&gpio4 29 GPIO_ACTIVE_LOW>;   // ILL1
+ 	pinctrl-assert-gpios = <&gpio4 31 GPIO_ACTIVE_LOW>;   // ILL2
+-- 
+1.7.9.5
+

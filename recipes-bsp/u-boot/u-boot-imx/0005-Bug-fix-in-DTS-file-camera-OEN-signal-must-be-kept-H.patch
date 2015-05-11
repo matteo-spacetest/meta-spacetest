@@ -1,0 +1,30 @@
+From cf3d85110f2d078639dee958bb21e45e9e83e46c Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Mon, 11 May 2015 11:46:42 +0200
+Subject: [PATCH] Bug fix in DTS file: camera OEN signal must be kept HIGH.
+
+---
+ board/engicam/mx6_icore/mx6_icore.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/board/engicam/mx6_icore/mx6_icore.c b/board/engicam/mx6_icore/mx6_icore.c
+index 99896d9..06bf94d 100644
+--- a/board/engicam/mx6_icore/mx6_icore.c
++++ b/board/engicam/mx6_icore/mx6_icore.c
+@@ -1040,10 +1040,10 @@ static void spc20010_setup_other_gpios_pins(void)
+ 	gpio_direction_input(SPC20010_AFLASH);
+ 	gpio_direction_input(SPC20010_PFLASH);
+ 
+-	gpio_direction_output(SPC20010_RESN , 1);
++	gpio_direction_output(SPC20010_RESN , 1); // active LOW
+ 	gpio_direction_output(SPC20010_TRIG , 0);
+-	gpio_direction_output(SPC20010_OEN  , 0);
+-	gpio_direction_output(SPC20010_STBY , 0);
++	gpio_direction_output(SPC20010_OEN  , 1); // active HIGH because of a NOT gate in the camera board
++	gpio_direction_output(SPC20010_STBY , 0); // active HIGH because of a NOT gate in the camera board
+ 
+ 	gpio_direction_output(SPC20010_ILL1 , 0);
+ 	gpio_direction_output(SPC20010_ILL2 , 0);
+-- 
+1.7.9.5
+
