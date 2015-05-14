@@ -1,0 +1,376 @@
+From 07948196227237f2e3069a558fdb3726a342d8c3 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Thu, 14 May 2015 15:48:52 +0200
+Subject: [PATCH] Playing with the camera driver.
+
+---
+ drivers/media/platform/mxc/capture/mt9p031.c       |   97 ++++++++++++++++++--
+ .../media/platform/mxc/capture/mxc_v4l2_capture.c  |   93 ++++++++++---------
+ include/media/v4l2-int-device.h                    |    7 ++
+ 3 files changed, 146 insertions(+), 51 deletions(-)
+
+diff --git a/drivers/media/platform/mxc/capture/mt9p031.c b/drivers/media/platform/mxc/capture/mt9p031.c
+index e4cb5cd..4cc941f 100644
+--- a/drivers/media/platform/mxc/capture/mt9p031.c
++++ b/drivers/media/platform/mxc/capture/mt9p031.c
+@@ -34,11 +34,13 @@
+ #include <linux/fsl_devices.h>
+ #include <media/v4l2-chip-ident.h>
+ #include <media/v4l2-int-device.h>
++#include <linux/string.h>
++
+ #include "mxc_v4l2_capture.h"
+ 
+ #define RES_DEFAULT
+ 
+-//#define MT9P031_DEBUG
++#define MT9P031_DEBUG
+ 
+ #ifdef MT9P031_DEBUG
+ #define IN_FUNC DPRINTK_DRIVER("in %s:\n", __func__)
+@@ -94,7 +96,8 @@
+ // PIXCLK = PLLOUT / P1 = 48 MHz (P1 = 4)
+ #define MT9P031_PLL_N_Divider    2
+ #define MT9P031_PLL_M_Multiplier 16
+-#define MT9P031_PLL_P1_Divider   4
++//#define MT9P031_PLL_P1_Divider   4
++#define MT9P031_PLL_P1_Divider   2
+ 
+ // test pattern
+ #define MT9P031_enable_test_pattern 0 // 0 - disable, 1 - enable
+@@ -102,8 +105,8 @@
+ #define MT9P031_test_pattern        MT9P031_color_bars
+ 
+ // mirror
+-#define MT9P031_Mirror_Row          1 // 0 - don't mirror, 1 - mirror
+-#define MT9P031_Mirror_Column       1 // 0 - don't mirror, 1 - mirror
++#define MT9P031_Mirror_Row          0 // 0 - don't mirror, 1 - mirror
++#define MT9P031_Mirror_Column       0 // 0 - don't mirror, 1 - mirror
+ #define MT9P031_read_mode_2_config  \
+         (0x0060 | (MT9P031_Mirror_Row << 15) | (MT9P031_Mirror_Column << 14))
+ 
+@@ -149,7 +152,8 @@ static int ioctl_g_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc);
+ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc);
+ static int ioctl_enum_framesizes(struct v4l2_int_device *s, struct v4l2_frmsizeenum *fsize);
+ static int ioctl_g_chip_ident(struct v4l2_int_device *s, int *id);
+-
++static int ioctl_g_register(struct v4l2_int_device *s, struct v4l2_dbg_register *reg);
++static int ioctl_s_register(struct v4l2_int_device *s, struct v4l2_dbg_register *reg);
+ 
+ static reg_param_t g_mt9p031_sequence_sensor_detection[] =
+ {
+@@ -174,7 +178,7 @@ static reg_param_t g_mt9p031_sequence_sensor_detection[] =
+ static reg_param_t g_mt9p031_sequence_pll_setup[] =
+ {
+     // sequence starts here
+-#if 0
++#if 1
+     // put chip into standby
+     {
+         .addr      = REG_MT9P031_OUT_CTRL,
+@@ -442,6 +446,8 @@ static struct v4l2_int_ioctl_desc mt9p031_ioctl_desc[] =
+     { .num = vidioc_int_dev_init_num,           .func = (v4l2_int_ioctl_func*) ioctl_dev_init },
+     { .num = vidioc_int_dev_exit_num,           .func = (v4l2_int_ioctl_func*) ioctl_dev_exit },
+     { .num = vidioc_int_g_chip_ident_num,       .func = (v4l2_int_ioctl_func*) ioctl_g_chip_ident },
++    { .num = vidioc_int_g_register_num,         .func = (v4l2_int_ioctl_func*) ioctl_g_register },
++    { .num = vidioc_int_s_register_num,         .func = (v4l2_int_ioctl_func*) ioctl_s_register },
+ };
+ 
+ static struct v4l2_int_slave mt9p031_slave =
+@@ -703,14 +709,46 @@ static int ioctl_g_fmt_cap(struct v4l2_int_device *s, struct v4l2_format *f)
+ 
+ static int ioctl_g_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
+ {
+-    IN_FUNC;
+-    return -EINVAL;
++	struct sensor_data *psd = (struct sensor_data *)s->priv;
++
++	IN_FUNC;
++
++	if (vc->id == V4L2_CID_EXPOSURE)
++	{
++		u16 U, L;
++		mt9p031_register_read(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_U, &U);
++		mt9p031_register_read(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_L, &L);
++		psd->ae_mode = (int)((((u32)U) << 16) | ((u32)L));
++		vc->value = psd->ae_mode;
++		return 0;
++	}
++	else
++		return -EINVAL;
+ }
+ 
+ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
+ {
+-    IN_FUNC;
+-    return -EINVAL;
++	struct sensor_data *psd = (struct sensor_data *)s->priv;
++
++	IN_FUNC;
++
++	if (vc->id == V4L2_CID_EXPOSURE)
++	{
++		if ((u32)(vc->value) > 0xfffff)
++			return -EINVAL;
++		else
++		{
++			u16 U, L;
++			psd->ae_mode = vc->value;
++			U = (u16)(((u32)(psd->ae_mode)) >> 16);
++			L = (u16)(psd->ae_mode);
++			mt9p031_register_write(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_U, U);
++			mt9p031_register_write(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_L, L);
++		}
++		return 0;
++	}
++	else
++		return -EINVAL;
+ }
+ 
+ static int ioctl_enum_framesizes(struct v4l2_int_device *s, struct v4l2_frmsizeenum *fsize)
+@@ -737,6 +775,44 @@ static int ioctl_g_chip_ident(struct v4l2_int_device *s, int *id)
+     return 0;
+ }
+ 
++static int ioctl_g_register(struct v4l2_int_device *s, struct v4l2_dbg_register *reg)
++{
++	int retval;
++
++	IN_FUNC;
++
++//	reg->match
++//	reg->size
++//	reg->reg
++//	reg->val
++
++	retval = mt9p031_register_read( mt9p031_data.i2c_client, (u16)(reg->reg), (u16 *)(&(reg->val)) );
++	if (retval)
++	{
++		pr_err("%s: mt9p031_reg_read (addr=0x%02x) failed\n", __func__, (u8)(reg->reg));
++		return retval;
++	}
++
++	return 0;
++}
++
++static int ioctl_s_register(struct v4l2_int_device *s, struct v4l2_dbg_register *reg)
++{
++	int retval;
++
++	IN_FUNC;
++
++	retval = mt9p031_register_write( mt9p031_data.i2c_client, (u16)(reg->reg), (u16)(reg->val) );
++	if (retval)
++	{
++		pr_err("%s: mt9p031_reg_write (addr=0x%x, value=0x%x) failed\n",
++			   __func__, (u16)(reg->reg), (u16)(reg->val));
++		return retval;
++	}
++
++	return 0;
++}
++
+ static int ioctl_init(struct v4l2_int_device *s)
+ {
+     IN_FUNC;
+@@ -748,6 +824,7 @@ static int ioctl_enum_fmt_cap(struct v4l2_int_device *s, struct v4l2_fmtdesc *fm
+     IN_FUNC;
+     if (fmt->index >= 1)
+     	return -EINVAL;
++	strncpy(fmt->description, "Grayscale/Bayer image, 8 bpp", 31); // "description" array has 32 elements
+     fmt->pixelformat = mt9p031_data.pix.pixelformat;
+     return 0;
+ }
+diff --git a/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c b/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
+index 5fd60e3..2e66127 100755
+--- a/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
++++ b/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
+@@ -395,7 +395,9 @@ static inline int valid_mode(u32 palette)
+ 		(palette == V4L2_PIX_FMT_YUV420) ||
+ 		(palette == V4L2_PIX_FMT_YVU420) ||
+  		(palette == V4L2_PIX_FMT_NV12) ||
+- 		(palette == V4L2_PIX_FMT_GREY));
++		(palette == V4L2_PIX_FMT_GREY) ||
++		(palette == V4L2_PIX_FMT_SGRBG8) ||
++		(palette == V4L2_PIX_FMT_SRGGB8));
+ }
+ 
+ /*!
+@@ -826,21 +828,6 @@ static int mxc_v4l2_s_fmt(cam_data *cam, struct v4l2_format *f)
+ 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+ 		pr_debug("   type=V4L2_BUF_TYPE_VIDEO_CAPTURE\n");
+ 
+-pr_debug("   f->fmt.pix.pixelformat=%c%c%c%c\n",
+-(f->fmt.pix.pixelformat)&0xff,
+-(f->fmt.pix.pixelformat>>8)&0xff,
+-(f->fmt.pix.pixelformat>>16)&0xff,
+-(f->fmt.pix.pixelformat>>24)&0xff);
+-
+-pr_debug("   pixelformat FORCED!!!\n");
+-f->fmt.pix.pixelformat=V4L2_PIX_FMT_GREY;
+-
+-pr_debug("   f->fmt.pix.pixelformat=%c%c%c%c\n",
+-(f->fmt.pix.pixelformat)&0xff,
+-(f->fmt.pix.pixelformat>>8)&0xff,
+-(f->fmt.pix.pixelformat>>16)&0xff,
+-(f->fmt.pix.pixelformat>>24)&0xff);
+-
+ 		if (!valid_mode(f->fmt.pix.pixelformat)) {
+ 			pr_err("ERROR: v4l2 capture: mxc_v4l2_s_fmt: format "
+ 			       "not supported\n");
+@@ -937,6 +924,8 @@ pr_debug("   f->fmt.pix.pixelformat=%c%c%c%c\n",
+ 			bytesperline = f->fmt.pix.width;
+ 			break;
+ 		case V4L2_PIX_FMT_GREY:
++		case V4L2_PIX_FMT_SGRBG8:
++		case V4L2_PIX_FMT_SRGGB8:
+ 			size = f->fmt.pix.width * f->fmt.pix.height;
+ 			bytesperline = f->fmt.pix.width;
+  			break;
+@@ -986,12 +975,6 @@ pr_debug("   f->fmt.pix.pixelformat=%c%c%c%c\n",
+ 	pr_debug("End of %s: crop_current widthxheight %d x %d\n",
+ 		 __func__,
+ 		 cam->crop_current.width, cam->crop_current.height);
+-pr_debug("End of %s: v2f pix pixelformat=%c%c%c%c\n",
+-__func__,
+-(cam->v2f.fmt.pix.pixelformat)&0xff,
+-(cam->v2f.fmt.pix.pixelformat>>8)&0xff,
+-(cam->v2f.fmt.pix.pixelformat>>16)&0xff,
+-(cam->v2f.fmt.pix.pixelformat>>24)&0xff);
+ 
+ 	return retval;
+ }
+@@ -1089,6 +1072,7 @@ static int mxc_v4l2_g_ctrl(cam_data *cam, struct v4l2_control *c)
+ 		}
+ 		break;
+ 	case V4L2_CID_BLACK_LEVEL:
++	case V4L2_CID_EXPOSURE:
+ 		if (cam->sensor) {
+ 			c->value = cam->ae_mode;
+ 			status = vidioc_int_g_ctrl(cam->sensor, c);
+@@ -1437,7 +1421,7 @@ static int mxc_v4l2_s_param(cam_data *cam, struct v4l2_streamparm *parm)
+ 	pr_debug("   g_fmt_cap returns widthxheight of input as %d x %d\n",
+ 			cam_fmt.fmt.pix.width, cam_fmt.fmt.pix.height);
+ 
+-cam->v2f.fmt.pix = cam_fmt.fmt.pix;
++	cam->v2f.fmt.pix = cam_fmt.fmt.pix;
+ 
+ 	csi_param.data_fmt = cam_fmt.fmt.pix.pixelformat;
+ 
+@@ -1465,22 +1449,26 @@ cam->v2f.fmt.pix = cam_fmt.fmt.pix;
+ 	ipu_csi_init_interface(cam->ipu, cam->crop_bounds.width,
+ 			       cam->crop_bounds.height,
+ //			       cam_fmt.fmt.pix.pixelformat, csi_param);
+-			       IPU_PIX_FMT_GENERIC, csi_param);
+-
+-pr_debug("   csi_param.data_width=%d\n",csi_param.data_width);
+-pr_debug("   csi_param.clk_mode=%d\n",csi_param.clk_mode);
+-pr_debug("   csi_param.ext_vsync=%d\n",csi_param.ext_vsync);
+-pr_debug("   csi_param.Vsync_pol=%d\n",csi_param.Vsync_pol);
+-pr_debug("   csi_param.Hsync_pol=%d\n",csi_param.Hsync_pol);
+-pr_debug("   csi_param.pixclk_pol=%d\n",csi_param.pixclk_pol);
+-pr_debug("   csi_param.data_pol=%d\n",csi_param.data_pol);
+-pr_debug("   csi_param.sens_clksrc=%d\n",csi_param.sens_clksrc);
+-pr_debug("   csi_param.pack_tight=%d\n",csi_param.pack_tight);
+-pr_debug("   csi_param.force_eof=%d\n",csi_param.force_eof);
+-pr_debug("   csi_param.data_en_pol=%d\n",csi_param.data_en_pol);
+-pr_debug("   csi_param.data_fmt=%d\n",csi_param.data_fmt);
+-pr_debug("   csi_param.csi=%d\n",csi_param.csi);
+-pr_debug("   csi_param.mclk=%d\n",csi_param.mclk);
++			       (cam_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_GREY   ||
++			        cam_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_SGRBG8 ||
++			        cam_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_SRGGB8)
++			       ? IPU_PIX_FMT_GENERIC : cam_fmt.fmt.pix.pixelformat,
++			       csi_param);
++
++//~ pr_debug("   csi_param.data_width=%d\n",csi_param.data_width);
++//~ pr_debug("   csi_param.clk_mode=%d\n",csi_param.clk_mode);
++//~ pr_debug("   csi_param.ext_vsync=%d\n",csi_param.ext_vsync);
++//~ pr_debug("   csi_param.Vsync_pol=%d\n",csi_param.Vsync_pol);
++//~ pr_debug("   csi_param.Hsync_pol=%d\n",csi_param.Hsync_pol);
++//~ pr_debug("   csi_param.pixclk_pol=%d\n",csi_param.pixclk_pol);
++//~ pr_debug("   csi_param.data_pol=%d\n",csi_param.data_pol);
++//~ pr_debug("   csi_param.sens_clksrc=%d\n",csi_param.sens_clksrc);
++//~ pr_debug("   csi_param.pack_tight=%d\n",csi_param.pack_tight);
++//~ pr_debug("   csi_param.force_eof=%d\n",csi_param.force_eof);
++//~ pr_debug("   csi_param.data_en_pol=%d\n",csi_param.data_en_pol);
++//~ pr_debug("   csi_param.data_fmt=%d\n",csi_param.data_fmt);
++//~ pr_debug("   csi_param.csi=%d\n",csi_param.csi);
++//~ pr_debug("   csi_param.mclk=%d\n",csi_param.mclk);
+ 
+ exit:
+ 	if (cam->overlay_on == true)
+@@ -1761,7 +1749,7 @@ static int mxc_v4l_open(struct file *file)
+ 		cam_fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+ 		vidioc_int_g_fmt_cap(cam->sensor, &cam_fmt);
+ 
+-cam->v2f.fmt.pix = cam_fmt.fmt.pix;
++		cam->v2f.fmt.pix = cam_fmt.fmt.pix;
+ 
+ 		/* Reset the sizes.  Needed to prevent carryover of last
+ 		 * operation.*/
+@@ -1804,7 +1792,10 @@ cam->v2f.fmt.pix = cam_fmt.fmt.pix;
+ 		ipu_csi_init_interface(cam->ipu, cam->crop_bounds.width,
+ 					cam->crop_bounds.height,
+ //					cam_fmt.fmt.pix.pixelformat,
+-					IPU_PIX_FMT_GENERIC,
++					(cam_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_GREY   ||
++					 cam_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_SGRBG8 ||
++					 cam_fmt.fmt.pix.pixelformat == V4L2_PIX_FMT_SRGGB8)
++					? IPU_PIX_FMT_GENERIC : cam_fmt.fmt.pix.pixelformat,
+ 					csi_param);
+ 		clk_prepare_enable(sensor->sensor_clk);
+ 		vidioc_int_s_power(cam->sensor, 1);
+@@ -2498,6 +2489,26 @@ pr_debug("$$VIDIOC_S_FMT (after)  sf->fmt.pix.pixelformat=%c%c%c%c\n",
+ 		}
+ 		break;
+ 	}
++	case VIDIOC_DBG_G_REGISTER: {
++		struct v4l2_dbg_register *r = arg;
++		if (cam->sensor)
++			retval = vidioc_int_g_register(cam->sensor, r);
++		else {
++			pr_err("ERROR: v4l2 capture: slave not found!\n");
++			retval = -ENODEV;
++		}
++		break;
++	}
++	case VIDIOC_DBG_S_REGISTER: {
++		struct v4l2_dbg_register *r = arg;
++		if (cam->sensor)
++			retval = vidioc_int_s_register(cam->sensor, r);
++		else {
++			pr_err("ERROR: v4l2 capture: slave not found!\n");
++			retval = -ENODEV;
++		}
++		break;
++	}
+ 	case VIDIOC_TRY_FMT:
+ 	case VIDIOC_QUERYCTRL:
+ 	case VIDIOC_G_TUNER:
+diff --git a/include/media/v4l2-int-device.h b/include/media/v4l2-int-device.h
+index 6d018a8..11c6ba4 100644
+--- a/include/media/v4l2-int-device.h
++++ b/include/media/v4l2-int-device.h
+@@ -242,6 +242,10 @@ enum v4l2_int_ioctl_num {
+ 	/* VIDIOC_DBG_G_CHIP_IDENT */
+ 	vidioc_int_g_chip_ident_num,
+ 
++	/* VIDIOC_DBG_G_REGISTER, VIDIOC_DBG_S_REGISTER */
++	vidioc_int_g_register_num,
++	vidioc_int_s_register_num,
++
+ 	/*
+ 	 *
+ 	 * Start of private ioctls.
+@@ -324,4 +328,7 @@ V4L2_INT_WRAPPER_0(reset);
+ V4L2_INT_WRAPPER_0(init);
+ V4L2_INT_WRAPPER_1(g_chip_ident, int, *);
+ 
++V4L2_INT_WRAPPER_1(g_register, struct v4l2_dbg_register, *);
++V4L2_INT_WRAPPER_1(s_register, struct v4l2_dbg_register, *);
++
+ #endif
+-- 
+1.7.9.5
+

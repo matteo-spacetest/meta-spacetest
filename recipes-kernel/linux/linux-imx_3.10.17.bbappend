@@ -9,4 +9,5 @@ SRC_URI += "file://0006-Serial-EEPROM-added-to-DTS.patch"
 SRC_URI += "file://0007-WF111-reset-pin-handled.patch"
 SRC_URI += "file://0008-Integration-of-experimental-Aptina-MT9P031-CMOS-sens.patch"
 SRC_URI += "file://0009-Bug-fix-in-DTS-file-camera-OEN-signal-must-be-kept-H.patch"
+SRC_URI += "file://0010-Playing-with-the-camera-driver.patch"
 
