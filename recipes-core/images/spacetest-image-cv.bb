@@ -56,6 +56,7 @@ IMAGE_INSTALL += " \
     wf111-driver \
     wireless-tools \
     wpa-supplicant \
+    space20010-hwtest \
 "	
 
 # TODO:

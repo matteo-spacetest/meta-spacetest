@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ $# -eq 0 ]; then
+	ns="1 2 3 4 5"
+else
+	ns=$@
+fi
+
+for n in $ns; do
+	echo in > its$n-dir
+	value=`cat its$n`
+	echo $value
+done
+

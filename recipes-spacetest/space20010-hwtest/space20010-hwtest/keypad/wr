@@ -1,0 +1,11 @@
+#!/bin/sh
+
+if [ $# -lt 2 ]; then
+	echo "Usage: wd <n> <value>"
+	exit
+else
+	#echo "ITS$1 <- $2"
+	echo out > its$1-dir
+	echo $2 > its$1
+fi
+
