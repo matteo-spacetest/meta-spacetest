@@ -57,18 +57,17 @@ IMAGE_INSTALL += " \
     wireless-tools \
     wpa-supplicant \
     space20010-hwtest \
-"	
-
-# TODO:
-# Add the following packages below.
-#    opencv
-#    opencv-samples
+    opencv \
+    opencv-samples \
+"
 
 CORE_IMAGE_EXTRA_INSTALL += " \
     packagegroup-fsl-gstreamer-full \
+    libgomp \
+    libgomp-dev \
+    libgomp-staticdev \
 "
 
 CONFLICT_DISTRO_FEATURES = "x11 wayland"
 
 export IMAGE_BASENAME = "spacetest-image-cv"
-
