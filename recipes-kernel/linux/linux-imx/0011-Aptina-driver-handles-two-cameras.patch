@@ -1,0 +1,540 @@
+From 0aff2efa43ac35954ea864f7e665d6ed7ee81d93 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Tue, 6 Oct 2015 10:12:57 +0200
+Subject: [PATCH] Aptina driver handles two cameras.
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts       |   38 ++---
+ drivers/media/platform/mxc/capture/mt9p031.c |  220 ++++++++++++++++----------
+ 2 files changed, 153 insertions(+), 105 deletions(-)
+ mode change 100755 => 100644 include/asm-generic/bitops/count_zeros.h
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index eaa4ee9..958fedd 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -155,25 +155,25 @@
+ //		cvbs = <1>;
+ 	};
+ 
+-//	// "Rear" camera
+-//	mt9p031_1: mt9p031@48 {
+-//		compatible = "mt,mt9p031";
+-//		reg = <0x48>;
+-//		pinctrl-names = "default";
+-//		pinctrl-0 = <&pinctrl_ipu2_2>;
+-////		pinctrl-assert-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>; /* RESET */
+-//		clocks = <&clks 201>;
+-//		clock-names = "csi_mclk";
+-////		DOVDD-supply = <&reg_3p3v>; /* 3.3v, enabled via 2.8 VGEN6 */
+-////		AVDD-supply = <&reg_3p3v>;  /* 1.8v */
+-////		DVDD-supply = <&reg_3p3v>;  /* 1.8v */
+-////		PVDD-supply = <&reg_3p3v>;  /* 1.8v */
+-////		pwn-gpios = <&gpio3 19 0>;  /* put on not used pin */
+-//		csi_id = <1>;
+-//		mclk = <24000000>;
+-//		mclk_source = <0>;
+-////		cvbs = <1>;
+-//	};
++	// "Rear" camera
++	mt9p031_1: mt9p031@48 {
++		compatible = "mt,mt9p031";
++		reg = <0x48>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_ipu2_2>;
++//		pinctrl-assert-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>; /* RESET */
++		clocks = <&clks 201>;
++		clock-names = "csi_mclk";
++//		DOVDD-supply = <&reg_3p3v>; /* 3.3v, enabled via 2.8 VGEN6 */
++//		AVDD-supply = <&reg_3p3v>;  /* 1.8v */
++//		DVDD-supply = <&reg_3p3v>;  /* 1.8v */
++//		PVDD-supply = <&reg_3p3v>;  /* 1.8v */
++//		pwn-gpios = <&gpio3 19 0>;  /* put on not used pin */
++		csi_id = <1>;
++		mclk = <24000000>;
++		mclk_source = <0>;
++//		cvbs = <1>;
++	};
+ 
+ };
+ 
+diff --git a/drivers/media/platform/mxc/capture/mt9p031.c b/drivers/media/platform/mxc/capture/mt9p031.c
+index 4cc941f..882654b 100644
+--- a/drivers/media/platform/mxc/capture/mt9p031.c
++++ b/drivers/media/platform/mxc/capture/mt9p031.c
+@@ -35,9 +35,12 @@
+ #include <media/v4l2-chip-ident.h>
+ #include <media/v4l2-int-device.h>
+ #include <linux/string.h>
+-
+ #include "mxc_v4l2_capture.h"
+ 
++
++ /* Maximum number of devices on a board */
++#define MT9P031_DEVS 2
++
+ #define RES_DEFAULT
+ 
+ #define MT9P031_DEBUG
+@@ -96,8 +99,7 @@
+ // PIXCLK = PLLOUT / P1 = 48 MHz (P1 = 4)
+ #define MT9P031_PLL_N_Divider    2
+ #define MT9P031_PLL_M_Multiplier 16
+-//#define MT9P031_PLL_P1_Divider   4
+-#define MT9P031_PLL_P1_Divider   2
++#define MT9P031_PLL_P1_Divider   4
+ 
+ // test pattern
+ #define MT9P031_enable_test_pattern 0 // 0 - disable, 1 - enable
+@@ -134,10 +136,10 @@ typedef enum
+ } camera_sequence_enum_t;
+ 
+ static void mt9p031_reset(void);
+-static int mt9p031_register_array_program(camera_sequence_enum_t sequence);
++static int mt9p031_register_array_program(const struct i2c_client *client, camera_sequence_enum_t sequence);
+ static int mt9p031_register_read(const struct i2c_client *client, u16 command, u16 *val);
+ static int mt9p031_register_write(const struct i2c_client *client, u16 command, u16 data);
+-static int mt9p031_probe(struct i2c_client *adapter, const struct i2c_device_id *device_id);
++static int mt9p031_probe(struct i2c_client *client, const struct i2c_device_id *device_id);
+ static int mt9p031_remove(struct i2c_client *client);
+ static int ioctl_g_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a);
+ static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a);
+@@ -430,7 +432,10 @@ static camera_sequences_t g_camera_sequences[] =
+     {.setting = g_mt9p031_sequence_mode_vga_640_480_20fps,  .size = ARRAY_SIZE(g_mt9p031_sequence_mode_vga_640_480_20fps)},
+     {.setting = g_mt9p031_sequence_test_pattern,            .size = ARRAY_SIZE(g_mt9p031_sequence_test_pattern)},
+ };
+-static struct sensor_data mt9p031_data;
++
++static struct sensor_data mt9p031_data[MT9P031_DEVS];
++static int mt9p031_count = 0;
++
+ static struct v4l2_int_ioctl_desc mt9p031_ioctl_desc[] =
+ {
+     { .num = vidioc_int_g_parm_num,             .func = (v4l2_int_ioctl_func*) ioctl_g_parm },
+@@ -450,18 +455,32 @@ static struct v4l2_int_ioctl_desc mt9p031_ioctl_desc[] =
+     { .num = vidioc_int_s_register_num,         .func = (v4l2_int_ioctl_func*) ioctl_s_register },
+ };
+ 
+-static struct v4l2_int_slave mt9p031_slave =
++static struct v4l2_int_slave mt9p031_slave[MT9P031_DEVS] =
+ {
+-    .ioctls = mt9p031_ioctl_desc,
+-    .num_ioctls = ARRAY_SIZE(mt9p031_ioctl_desc),
++	{
++		.ioctls = mt9p031_ioctl_desc,
++		.num_ioctls = ARRAY_SIZE(mt9p031_ioctl_desc),
++	},
++	{
++		.ioctls = mt9p031_ioctl_desc,
++		.num_ioctls = ARRAY_SIZE(mt9p031_ioctl_desc),
++	}
+ };
+ 
+-static struct v4l2_int_device mt9p031_int_device =
++static struct v4l2_int_device mt9p031_int_device[MT9P031_DEVS] =
+ {
+-   .module = THIS_MODULE,
+-   .name = "mt9p031",
+-   .type = v4l2_int_type_slave,
+-   .u = { .slave = &mt9p031_slave }
++	{
++	   .module = THIS_MODULE,
++	   .name = "mt9p031-1",
++	   .type = v4l2_int_type_slave,
++	   .u = { .slave = &mt9p031_slave[0] }
++	},
++	{
++	   .module = THIS_MODULE,
++	   .name = "mt9p031-2",
++	   .type = v4l2_int_type_slave,
++	   .u = { .slave = &mt9p031_slave[1] }
++	}
+ };
+ 
+ static const struct i2c_device_id mt9p031_id[] =
+@@ -485,7 +504,7 @@ static void mt9p031_reset(void)
+ 
+ }
+ 
+-static int mt9p031_register_array_program(camera_sequence_enum_t sequence)
++static int mt9p031_register_array_program(const struct i2c_client *client, camera_sequence_enum_t sequence)
+ {
+     int i;
+     u16 read_value;
+@@ -497,7 +516,7 @@ static int mt9p031_register_array_program(camera_sequence_enum_t sequence)
+         reg_param_t *setting = &camera_sequence->setting[i];
+         if(setting->read)
+         {
+-           if (mt9p031_register_read(mt9p031_data.i2c_client, setting->addr, &read_value))
++           if (mt9p031_register_read(client, setting->addr, &read_value))
+            {
+                pr_err("%s: mt9p031_reg_read(addr=0x%x) failed\n", __func__, setting->addr);
+                return -1;
+@@ -514,7 +533,7 @@ static int mt9p031_register_array_program(camera_sequence_enum_t sequence)
+         }
+         else
+         {
+-            if (mt9p031_register_write(mt9p031_data.i2c_client, setting->addr, setting->value))
++            if (mt9p031_register_write(client, setting->addr, setting->value))
+             {
+                 pr_err("%s: mt9p031_reg_write(addr=0x%x,value=0x%x) failed\n",
+                        __func__, setting->addr, setting->value);
+@@ -524,7 +543,7 @@ static int mt9p031_register_array_program(camera_sequence_enum_t sequence)
+                 msleep(setting->delay_ms);
+             if (setting->verify)
+             {
+-                if (mt9p031_register_read(mt9p031_data.i2c_client, setting->addr, &read_value))
++                if (mt9p031_register_read(client, setting->addr, &read_value))
+                 {
+                    pr_err("%s: mt9p031_reg_read(addr=0x%x) failed\n", __func__, setting->addr);
+                    return -1;
+@@ -593,6 +612,7 @@ static int mt9p031_register_write(const struct i2c_client *client, u16 command,
+ 
+ static int ioctl_g_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
+ {
++	struct sensor_data *sensor_data = s->priv;
+     struct v4l2_captureparm *cparm = &a->parm.capture;
+     int ret = 0;
+ 
+@@ -602,9 +622,9 @@ static int ioctl_g_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
+     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+         memset(a, 0, sizeof(*a));
+         a->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+-        cparm->capability = mt9p031_data.streamcap.capability;
+-        cparm->timeperframe = mt9p031_data.streamcap.timeperframe;
+-        cparm->capturemode = mt9p031_data.streamcap.capturemode;
++        cparm->capability = sensor_data->streamcap.capability;
++        cparm->timeperframe = sensor_data->streamcap.timeperframe;
++        cparm->capturemode = sensor_data->streamcap.capturemode;
+         ret = 0;
+         break;
+ 
+@@ -617,6 +637,7 @@ static int ioctl_g_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
+ 
+ static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
+ {
++	struct sensor_data *sensor_data = s->priv;
+     struct v4l2_captureparm *cparm = &a->parm.capture;
+     int ret = 0;
+ 
+@@ -656,9 +677,9 @@ static int ioctl_s_parm(struct v4l2_int_device *s, struct v4l2_streamparm *a)
+             pr_err("%s:camera capture mode not supported\n", __func__);
+             return -EINVAL;
+         }
+-        mt9p031_data.streamcap.timeperframe.denominator = cparm->timeperframe.denominator;
+-        mt9p031_data.streamcap.timeperframe.numerator = cparm->timeperframe.numerator;
+-        mt9p031_data.streamcap.capturemode = cparm->capturemode;
++        sensor_data->streamcap.timeperframe.denominator = cparm->timeperframe.denominator;
++        sensor_data->streamcap.timeperframe.numerator = cparm->timeperframe.numerator;
++        sensor_data->streamcap.capturemode = cparm->capturemode;
+         break;
+ 
+     default:
+@@ -677,6 +698,8 @@ static int ioctl_s_power(struct v4l2_int_device *s, int on)
+ 
+ static int ioctl_g_ifparm(struct v4l2_int_device *s, struct v4l2_ifparm *p)
+ {
++	struct sensor_data *sensor_data = s->priv;
++
+     IN_FUNC;
+     if (s == NULL) {
+         pr_err("%s:no slave device set\n", __func__);
+@@ -696,54 +719,55 @@ static int ioctl_g_ifparm(struct v4l2_int_device *s, struct v4l2_ifparm *p)
+     p->u.csi.Hsync_pol = 0;
+     p->u.csi.pixclk_pol = 0;
+     p->u.csi.set_mclk = 0;
+-    p->u.csi.clock_curr = mt9p031_data.mclk;
++    p->u.csi.clock_curr = sensor_data->mclk;
+     return 0;
+ }
+ 
+ static int ioctl_g_fmt_cap(struct v4l2_int_device *s, struct v4l2_format *f)
+ {
++	struct sensor_data *sensor_data = s->priv;
++
+     IN_FUNC;
+-    f->fmt.pix = mt9p031_data.pix;
++    f->fmt.pix = sensor_data->pix;
++
++	print_pixel_format(f->fmt.pix.pixelformat);
++
+     return 0;
+ }
+ 
+ static int ioctl_g_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
+ {
+-	struct sensor_data *psd = (struct sensor_data *)s->priv;
+-
+-	IN_FUNC;
+-
++	struct sensor_data *sensor_data = s->priv;
++    IN_FUNC;
+ 	if (vc->id == V4L2_CID_EXPOSURE)
+ 	{
+ 		u16 U, L;
+-		mt9p031_register_read(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_U, &U);
+-		mt9p031_register_read(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_L, &L);
+-		psd->ae_mode = (int)((((u32)U) << 16) | ((u32)L));
+-		vc->value = psd->ae_mode;
++		mt9p031_register_read(sensor_data->i2c_client, REG_MT9P031_SHUTTER_WIDTH_U, &U);
++		mt9p031_register_read(sensor_data->i2c_client, REG_MT9P031_SHUTTER_WIDTH_L, &L);
++		sensor_data->ae_mode = (int)((((u32)U) << 16) | ((u32)L));
++		vc->value = sensor_data->ae_mode;
+ 		return 0;
+ 	}
+ 	else
+-		return -EINVAL;
++    return -EINVAL;
+ }
+ 
+ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
+ {
+-	struct sensor_data *psd = (struct sensor_data *)s->priv;
+-
+-	IN_FUNC;
+-
++	struct sensor_data *sensor_data = s->priv;
++    IN_FUNC;
+ 	if (vc->id == V4L2_CID_EXPOSURE)
+ 	{
+ 		if ((u32)(vc->value) > 0xfffff)
+-			return -EINVAL;
++    return -EINVAL;
+ 		else
+ 		{
+ 			u16 U, L;
+-			psd->ae_mode = vc->value;
+-			U = (u16)(((u32)(psd->ae_mode)) >> 16);
+-			L = (u16)(psd->ae_mode);
+-			mt9p031_register_write(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_U, U);
+-			mt9p031_register_write(mt9p031_data.i2c_client, REG_MT9P031_SHUTTER_WIDTH_L, L);
++			sensor_data->ae_mode = vc->value;
++			U = (u16)(((u32)(sensor_data->ae_mode)) >> 16);
++			L = (u16)(sensor_data->ae_mode);
++			mt9p031_register_write(sensor_data->i2c_client, REG_MT9P031_SHUTTER_WIDTH_U, U);
++			mt9p031_register_write(sensor_data->i2c_client, REG_MT9P031_SHUTTER_WIDTH_L, L);
+ 		}
+ 		return 0;
+ 	}
+@@ -753,10 +777,15 @@ static int ioctl_s_ctrl(struct v4l2_int_device *s, struct v4l2_control *vc)
+ 
+ static int ioctl_enum_framesizes(struct v4l2_int_device *s, struct v4l2_frmsizeenum *fsize)
+ {
++	struct sensor_data *sensor_data = s->priv;
++
+     IN_FUNC;
+     if (fsize->index >= 1)
+         return -EINVAL;
+-    fsize->pixel_format = mt9p031_data.pix.pixelformat;
++    fsize->pixel_format = sensor_data->pix.pixelformat;
++
++	print_pixel_format(fsize->pixel_format);
++
+ #ifdef RES_DEFAULT
+     fsize->discrete.width = 2592;
+     fsize->discrete.height = 1944;
+@@ -777,6 +806,7 @@ static int ioctl_g_chip_ident(struct v4l2_int_device *s, int *id)
+ 
+ static int ioctl_g_register(struct v4l2_int_device *s, struct v4l2_dbg_register *reg)
+ {
++	struct sensor_data *sensor_data = s->priv;
+ 	int retval;
+ 
+ 	IN_FUNC;
+@@ -786,7 +816,7 @@ static int ioctl_g_register(struct v4l2_int_device *s, struct v4l2_dbg_register
+ //	reg->reg
+ //	reg->val
+ 
+-	retval = mt9p031_register_read( mt9p031_data.i2c_client, (u16)(reg->reg), (u16 *)(&(reg->val)) );
++	retval = mt9p031_register_read( sensor_data->i2c_client, (u16)(reg->reg), (u16 *)(&(reg->val)) );
+ 	if (retval)
+ 	{
+ 		pr_err("%s: mt9p031_reg_read (addr=0x%02x) failed\n", __func__, (u8)(reg->reg));
+@@ -798,11 +828,12 @@ static int ioctl_g_register(struct v4l2_int_device *s, struct v4l2_dbg_register
+ 
+ static int ioctl_s_register(struct v4l2_int_device *s, struct v4l2_dbg_register *reg)
+ {
++	struct sensor_data *sensor_data = s->priv;
+ 	int retval;
+ 
+ 	IN_FUNC;
+ 
+-	retval = mt9p031_register_write( mt9p031_data.i2c_client, (u16)(reg->reg), (u16)(reg->val) );
++	retval = mt9p031_register_write( sensor_data->i2c_client, (u16)(reg->reg), (u16)(reg->val) );
+ 	if (retval)
+ 	{
+ 		pr_err("%s: mt9p031_reg_write (addr=0x%x, value=0x%x) failed\n",
+@@ -812,7 +843,6 @@ static int ioctl_s_register(struct v4l2_int_device *s, struct v4l2_dbg_register
+ 
+ 	return 0;
+ }
+-
+ static int ioctl_init(struct v4l2_int_device *s)
+ {
+     IN_FUNC;
+@@ -821,18 +851,24 @@ static int ioctl_init(struct v4l2_int_device *s)
+ 
+ static int ioctl_enum_fmt_cap(struct v4l2_int_device *s, struct v4l2_fmtdesc *fmt)
+ {
++	struct sensor_data *sensor_data = s->priv;
++
+     IN_FUNC;
+     if (fmt->index >= 1)
+     	return -EINVAL;
+-	strncpy(fmt->description, "Grayscale/Bayer image, 8 bpp", 31); // "description" array has 32 elements
+-    fmt->pixelformat = mt9p031_data.pix.pixelformat;
++    fmt->pixelformat = sensor_data->pix.pixelformat;
++
++	print_pixel_format(fmt->pixelformat);
++
+     return 0;
+ }
+ 
+ static int ioctl_dev_init(struct v4l2_int_device *s)
+ {
++	struct sensor_data *sensor_data = s->priv;
++
+     IN_FUNC;
+-    if (mt9p031_register_array_program(MT9P031_SEQUENCE_PLL_SETUP)){
++    if (mt9p031_register_array_program(sensor_data->i2c_client, MT9P031_SEQUENCE_PLL_SETUP)){
+ 		pr_err("%s:error setting pll\n", __func__);
+ 		return -ENODEV;
+ 	}
+@@ -851,77 +887,89 @@ static int mt9p031_probe(struct i2c_client *client, const struct i2c_device_id *
+     int retval = 0;
+ 
+     IN_FUNC;
++
++	if (mt9p031_count >= MT9P031_DEVS) {
++		dev_err(dev, "too many mt9p031 in platform\n");
++		return -1;
++	}
++
+ 	/* Set initial values for the sensor struct. */
+-    memset(&mt9p031_data, 0, sizeof(mt9p031_data));
+-    mt9p031_data.sensor_clk = devm_clk_get(dev, "csi_mclk");
+-	if (IS_ERR(mt9p031_data.sensor_clk)) {
++    memset(&mt9p031_data[mt9p031_count], 0, sizeof(mt9p031_data));
++    mt9p031_data[mt9p031_count].sensor_clk = devm_clk_get(dev, "csi_mclk");
++	if (IS_ERR(mt9p031_data[mt9p031_count].sensor_clk)) {
+ 		/* assuming clock enabled by default */
+-		mt9p031_data.sensor_clk = NULL;
++		mt9p031_data[mt9p031_count].sensor_clk = NULL;
+ 		dev_err(dev, "clock-frequency missing or invalid\n");
+-		return PTR_ERR(mt9p031_data.sensor_clk);
++		return PTR_ERR(mt9p031_data[mt9p031_count].sensor_clk);
+ 	}
+-	retval = of_property_read_u32(dev->of_node, "mclk",(u32 *) &(mt9p031_data.mclk));
++	retval = of_property_read_u32(dev->of_node, "mclk",(u32 *) &(mt9p031_data[mt9p031_count].mclk));
+ 	if (retval) {
+ 		dev_err(dev, "mclk missing or invalid\n");
+ 		return retval;
+ 	}
+-	retval = of_property_read_u32(dev->of_node, "mclk_source",(u32 *) &(mt9p031_data.mclk_source));
++	retval = of_property_read_u32(dev->of_node, "mclk_source",(u32 *) &(mt9p031_data[mt9p031_count].mclk_source));
+ 	if (retval) {
+ 		dev_err(dev, "mclk_source missing or invalid\n");
+ 		return retval;
+ 	}
+-	retval = of_property_read_u32(dev->of_node, "csi_id",&(mt9p031_data.csi));
++	retval = of_property_read_u32(dev->of_node, "csi_id",&(mt9p031_data[mt9p031_count].csi));
+ 	if (retval) {
+ 		dev_err(dev, "csi_id missing or invalid\n");
+ 		return retval;
+ 	}
+ 
+-	clk_prepare_enable(mt9p031_data.sensor_clk);
++	clk_prepare_enable(mt9p031_data[mt9p031_count].sensor_clk);
+ 
+-    mt9p031_data.io_init = mt9p031_reset;
+-    mt9p031_data.on = true;
+-    mt9p031_data.i2c_client = client;
+-//    mt9p031_data.pix.pixelformat = IPU_PIX_FMT_RGB24;
+-//    mt9p031_data.pix.pixelformat = IPU_PIX_FMT_GENERIC;
+-//    mt9p031_data.pix.pixelformat = V4L2_PIX_FMT_SRGGB8;
+-    mt9p031_data.pix.pixelformat = V4L2_PIX_FMT_GREY;
++    mt9p031_data[mt9p031_count].io_init = mt9p031_reset;
++    mt9p031_data[mt9p031_count].on = true;
++    mt9p031_data[mt9p031_count].i2c_client = client;
++//    mt9p031_data[mt9p031_count].pix.pixelformat = IPU_PIX_FMT_RGB24;
++//    mt9p031_data[mt9p031_count].pix.pixelformat = IPU_PIX_FMT_GENERIC;
++//    mt9p031_data[mt9p031_count].pix.pixelformat = V4L2_PIX_FMT_SRGGB8;
++    mt9p031_data[mt9p031_count].pix.pixelformat = V4L2_PIX_FMT_GREY;
+ #ifdef RES_DEFAULT
+-    mt9p031_data.pix.width = 2592;
+-    mt9p031_data.pix.height = 1944;
++    mt9p031_data[mt9p031_count].pix.width = 2592;
++    mt9p031_data[mt9p031_count].pix.height = 1944;
+ #else
+-    mt9p031_data.pix.width = 640;
+-    mt9p031_data.pix.height = 480;
++    mt9p031_data[mt9p031_count].pix.width = 640;
++    mt9p031_data[mt9p031_count].pix.height = 480;
+ #endif
+-    mt9p031_data.streamcap.capability = V4L2_MODE_HIGHQUALITY | V4L2_CAP_TIMEPERFRAME;
+-    mt9p031_data.streamcap.capturemode = 0;
++    mt9p031_data[mt9p031_count].streamcap.capability = V4L2_MODE_HIGHQUALITY | V4L2_CAP_TIMEPERFRAME;
++    mt9p031_data[mt9p031_count].streamcap.capturemode = 0;
+ #ifdef RES_DEFAULT
+-    mt9p031_data.streamcap.timeperframe.denominator = 14;
++    mt9p031_data[mt9p031_count].streamcap.timeperframe.denominator = 14;
+ #else
+-    mt9p031_data.streamcap.timeperframe.denominator = 20;
++    mt9p031_data[mt9p031_count].streamcap.timeperframe.denominator = 20;
+ #endif
+-    mt9p031_data.streamcap.timeperframe.numerator = 1;
++    mt9p031_data[mt9p031_count].streamcap.timeperframe.numerator = 1;
+ 
+     mt9p031_reset();
+ 
+-    if (mt9p031_register_array_program(MT9P031_SEQUENCE_SENSOR_DETECTION)) {
+-        pr_err("%s:cannot find MT9P031 camera\n", __func__);
+-		clk_disable_unprepare(mt9p031_data.sensor_clk);
++    if (mt9p031_register_array_program(client, MT9P031_SEQUENCE_SENSOR_DETECTION)) {
++        pr_err("%s:cannot find MT9P031[%d] camera\n", __func__, mt9p031_count);
++		clk_disable_unprepare(mt9p031_data[mt9p031_count].sensor_clk);
+         return -ENODEV;
+     }
+ 
+-    mt9p031_int_device.priv = &mt9p031_data;
+-    retval = v4l2_int_device_register(&mt9p031_int_device);
++    mt9p031_int_device[mt9p031_count].priv = &mt9p031_data[mt9p031_count];
++    retval = v4l2_int_device_register(&mt9p031_int_device[mt9p031_count]);
+ 
+-    clk_disable_unprepare(mt9p031_data.sensor_clk);
++    clk_disable_unprepare(mt9p031_data[mt9p031_count].sensor_clk);
++
++	pr_info("%s:MT9P031[%d] camera found\n", __func__, mt9p031_count);
++
++	mt9p031_count++;
+ 
+-	pr_info("%s:MT9P031 camera found\n", __func__);
+     return retval;
+ }
+ 
+ static int mt9p031_remove(struct i2c_client *client)
+ {
+     IN_FUNC;
+-    v4l2_int_device_unregister(&mt9p031_int_device);
++    v4l2_int_device_unregister(&mt9p031_int_device[mt9p031_count]);
++
++	mt9p031_count--;
++
+     return 0;
+ }
+ 
+@@ -945,7 +993,7 @@ static void __exit mt9p031_clean(void)
+ module_init(mt9p031_init);
+ module_exit(mt9p031_clean);
+ 
+-MODULE_AUTHOR("dragan.ostojic@bell.net");
++MODULE_AUTHOR("dragan.ostojic@bell.net, Andrea Iodice (aiodice@speedlogic.com), Matteo Battaggia (m.battaggia@spacetest.com)");
+ MODULE_DESCRIPTION("MT9P031 Camera Driver");
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION("1.0");
+diff --git a/include/asm-generic/bitops/count_zeros.h b/include/asm-generic/bitops/count_zeros.h
+old mode 100755
+new mode 100644
+-- 
+1.7.9.5
+
