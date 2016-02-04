@@ -1,28 +1,48 @@
-From 0aff2efa43ac35954ea864f7e665d6ed7ee81d93 Mon Sep 17 00:00:00 2001
+From 4e461bf801aedaa59a6e9ced28e5b249362f40d7 Mon Sep 17 00:00:00 2001
 From: Matteo Battaggia <matteo.battaggia@spacetest.com>
-Date: Tue, 6 Oct 2015 10:12:57 +0200
-Subject: [PATCH] Aptina driver handles two cameras.
+Date: Thu, 4 Feb 2016 17:57:27 +0100
+Subject: [PATCH] Aptina camera driver can handle two cameras.
 
 ---
- arch/arm/boot/dts/imx6q-space20010.dts       |   38 ++---
+ arch/arm/boot/dts/imx6q-space20010.dts       |   71 ++++++---
  drivers/media/platform/mxc/capture/mt9p031.c |  220 ++++++++++++++++----------
- 2 files changed, 153 insertions(+), 105 deletions(-)
- mode change 100755 => 100644 include/asm-generic/bitops/count_zeros.h
+ 2 files changed, 179 insertions(+), 112 deletions(-)
 
 diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
-index eaa4ee9..958fedd 100644
+index 730ef5a..958fedd 100644
 --- a/arch/arm/boot/dts/imx6q-space20010.dts
 +++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -15,13 +15,13 @@
+ 		status = "okay";
+ 	};
+ 
+-//	v4l2_cap_1 {
+-//		compatible = "fsl,imx6q-v4l2-capture";
+-//		ipu_id = <1>;
+-//		csi_id = <1>;
+-//		mclk_source = <0>;
+-//		status = "okay";
+-//	};
++	v4l2_cap_1 {
++		compatible = "fsl,imx6q-v4l2-capture";
++		ipu_id = <1>;
++		csi_id = <1>;
++		mclk_source = <0>;
++		status = "okay";
++	};
+ 
+ //	v4l2_out {
+ //		compatible = "fsl,mxc_v4l2_output";
 @@ -155,25 +155,25 @@
  //		cvbs = <1>;
  	};
  
 -//	// "Rear" camera
--//	mt9p031_1: mt9p031@48 {
+-//	mt9p031_0: mt9p031@48 {
 -//		compatible = "mt,mt9p031";
 -//		reg = <0x48>;
 -//		pinctrl-names = "default";
--//		pinctrl-0 = <&pinctrl_ipu2_2>;
+-//		pinctrl-0 = <&pinctrl_ipu1_6>; // TBD
 -////		pinctrl-assert-gpios = <&gpio1 0 GPIO_ACTIVE_HIGH>; /* RESET */
 -//		clocks = <&clks 201>;
 -//		clock-names = "csi_mclk";
@@ -58,6 +78,29 @@ index eaa4ee9..958fedd 100644
  
  };
  
+@@ -352,3 +352,22 @@
+ 	};
+ };
+ 
++&iomuxc {
++	ipu2 {
++		pinctrl_ipu2_2: ipu2grp-2 { /* parallel camera  */
++			fsl,pins = <
++				MX6QDL_PAD_EIM_A17__IPU2_CSI1_DATA12  0x80000000  // PCCD4
++				MX6QDL_PAD_EIM_D27__IPU2_CSI1_DATA13  0x80000000  // PCCD5
++				MX6QDL_PAD_EIM_D26__IPU2_CSI1_DATA14  0x80000000  // PCCD6
++				MX6QDL_PAD_EIM_A20__IPU2_CSI1_DATA15  0x80000000  // PCCD7
++				MX6QDL_PAD_EIM_A21__IPU2_CSI1_DATA16  0x80000000  // PCCD8
++				MX6QDL_PAD_EIM_A22__IPU2_CSI1_DATA17  0x80000000  // PCCD9
++				MX6QDL_PAD_EIM_A23__IPU2_CSI1_DATA18  0x80000000  // PCCD10
++				MX6QDL_PAD_EIM_A24__IPU2_CSI1_DATA19  0x80000000  // PCCD11
++				MX6QDL_PAD_EIM_A16__IPU2_CSI1_PIXCLK  0x80000000  // PPCLK
++				MX6QDL_PAD_EIM_EB3__IPU2_CSI1_HSYNC   0x80000000  // PLV
++				MX6QDL_PAD_EIM_D29__IPU2_CSI1_VSYNC   0x80000000  // PFV
++			>;
++		};
++	};
++};
 diff --git a/drivers/media/platform/mxc/capture/mt9p031.c b/drivers/media/platform/mxc/capture/mt9p031.c
 index 4cc941f..882654b 100644
 --- a/drivers/media/platform/mxc/capture/mt9p031.c
@@ -532,9 +575,6 @@ index 4cc941f..882654b 100644
  MODULE_DESCRIPTION("MT9P031 Camera Driver");
  MODULE_LICENSE("GPL");
  MODULE_VERSION("1.0");
-diff --git a/include/asm-generic/bitops/count_zeros.h b/include/asm-generic/bitops/count_zeros.h
-old mode 100755
-new mode 100644
 -- 
 1.7.9.5
 
