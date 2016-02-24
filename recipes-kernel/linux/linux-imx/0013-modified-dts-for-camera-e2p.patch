@@ -1,0 +1,49 @@
+From 36a4afc72940f639974955058de1674d5a91eb65 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Wed, 24 Feb 2016 15:45:07 +0100
+Subject: [PATCH] modified dts for camera e2p
+
+---
+ arch/arm/boot/dts/imx6q-space20010.dts |   26 +++++++++++++-------------
+ 1 file changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/arch/arm/boot/dts/imx6q-space20010.dts b/arch/arm/boot/dts/imx6q-space20010.dts
+index 958fedd..6523221 100644
+--- a/arch/arm/boot/dts/imx6q-space20010.dts
++++ b/arch/arm/boot/dts/imx6q-space20010.dts
+@@ -121,19 +121,19 @@
+ 	status = "okay";
+ 	// TBD - TODO (I2C used to control the two cameras.)
+ 
+-	// "Front" EEPROM
+-	eeprom@56 {
+-		compatible = "cypress,24c04";
+-		reg = <0x56>;
+-//		pagesize = <256>;
+-	};
+-
+-	// "Rear" EEPROM
+-	eeprom@54 {
+-		compatible = "cypress,24c04";
+-		reg = <0x54>;
+-//		pagesize = <256>;
+-	};
++//	// "Front" EEPROM
++//	eeprom_0: eeprom@56 {
++//		compatible = "cypress,24c04";
++//		reg = <0x56>;
++////		pagesize = <256>;
++//	};
++//
++//	// "Rear" EEPROM
++//	eeprom_1: eeprom@54 {
++//		compatible = "cypress,24c04";
++//		reg = <0x54>;
++////		pagesize = <256>;
++//	};
+ 
+ 	// "Front" camera
+ 	mt9p031_0: mt9p031@5d {
+-- 
+1.7.9.5
+

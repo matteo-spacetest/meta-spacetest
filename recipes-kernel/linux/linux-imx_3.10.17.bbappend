@@ -12,4 +12,5 @@ SRC_URI += "file://0009-Bug-fix-in-DTS-file-camera-OEN-signal-must-be-kept-H.pat
 SRC_URI += "file://0010-Playing-with-the-camera-driver.patch"
 SRC_URI += "file://0011-Aptina-driver-handles-two-cameras.patch"
 SRC_URI += "file://0012-camera-driver-allows-image-cropping.patch"
+SRC_URI += "file://0013-modified-dts-for-camera-e2p.patch"
 
