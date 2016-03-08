@@ -1,0 +1,185 @@
+From 99bb5bc2b472153e39267cf563a9a1b6d4a56670 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Tue, 8 Mar 2016 17:00:24 +0100
+Subject: [PATCH] snapshot (still) capture mode
+
+---
+ copy_modules.sh                                    |    4 +--
+ drivers/media/platform/mxc/capture/ipu_csi_enc.c   |    5 ++--
+ drivers/media/platform/mxc/capture/ipu_still.c     |   25 +++++++++++-------
+ drivers/media/platform/mxc/capture/mt9p031.c       |    4 +--
+ .../media/platform/mxc/capture/mxc_v4l2_capture.c  |   27 +++++++++++++-------
+ 5 files changed, 40 insertions(+), 25 deletions(-)
+ mode change 100644 => 100755 copy_modules.sh
+
+diff --git a/copy_modules.sh b/copy_modules.sh
+old mode 100644
+new mode 100755
+index 9a37098..f83ab04
+--- a/copy_modules.sh
++++ b/copy_modules.sh
+@@ -3,6 +3,4 @@
+ SRC_DIR="drivers/media/platform/mxc/capture"
+ DST_DIR="/nfs_icore/lib/modules/3.10.17-1.0.1_ga+gdac46dc/kernel/drivers/media/platform/mxc/capture"
+ 
+-cp $SRC_DIR/mt9p031_camera.ko $DST_DIR/
+-cp $SRC_DIR/mxc_v4l2_capture.ko $DST_DIR/
+-
++cp $SRC_DIR/*.ko $DST_DIR/
+diff --git a/drivers/media/platform/mxc/capture/ipu_csi_enc.c b/drivers/media/platform/mxc/capture/ipu_csi_enc.c
+index c67bd19..9960153 100644
+--- a/drivers/media/platform/mxc/capture/ipu_csi_enc.c
++++ b/drivers/media/platform/mxc/capture/ipu_csi_enc.c
+@@ -19,8 +19,9 @@
+  * @ingroup IPU
+  */
+ 
+-#define DEBUG
+-#define CAMERA_DBG
++// MOD-MB-20160308
++//#define DEBUG
++//#define CAMERA_DBG
+ 
+ #include <linux/module.h>
+ #include <linux/platform_device.h>
+diff --git a/drivers/media/platform/mxc/capture/ipu_still.c b/drivers/media/platform/mxc/capture/ipu_still.c
+index b295a18..788f860 100644
+--- a/drivers/media/platform/mxc/capture/ipu_still.c
++++ b/drivers/media/platform/mxc/capture/ipu_still.c
+@@ -19,6 +19,9 @@
+  * @ingroup IPU
+  */
+ 
++// MOD-MB-20160308
++//#define DEBUG
++
+ #include <linux/module.h>
+ #include <linux/semaphore.h>
+ #include <linux/sched.h>
+@@ -65,21 +68,22 @@ static irqreturn_t prp_csi_eof_callback(int irq, void *dev_id)
+  *
+  * @return status   IRQ_HANDLED for handled
+  */
++// MOD-MB-20160308
+ static irqreturn_t prp_still_callback(int irq, void *dev_id)
+ {
+ 	cam_data *cam = (cam_data *) dev_id;
+ 
+-	callback_eof_flag++;
+-	if (callback_eof_flag < 5) {
+-#ifndef CONFIG_MXC_IPU_V1
+-		buffer_num = (buffer_num == 0) ? 1 : 0;
+-		ipu_select_buffer(cam->ipu, CSI_MEM,
+-				  IPU_OUTPUT_BUFFER, buffer_num);
+-#endif
+-	} else {
++//	callback_eof_flag++;
++//	if (callback_eof_flag < 5) {
++//#ifndef CONFIG_MXC_IPU_V1
++//		buffer_num = (buffer_num == 0) ? 1 : 0;
++//		ipu_select_buffer(cam->ipu, CSI_MEM,
++//				  IPU_OUTPUT_BUFFER, buffer_num);
++//#endif
++//	} else {
+ 		cam->still_counter++;
+ 		wake_up_interruptible(&cam->still_queue);
+-	}
++//	}
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -117,12 +121,15 @@ static int prp_still_start(void *private)
+ 		pixel_fmt = IPU_PIX_FMT_BGR32;
+ 	else if (cam->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_RGB32)
+ 		pixel_fmt = IPU_PIX_FMT_RGB32;
++	else if (cam->v2f.fmt.pix.pixelformat == V4L2_PIX_FMT_GREY) // MOD-MB-20160308
++		pixel_fmt = IPU_PIX_FMT_GENERIC;
+ 	else {
+ 		printk(KERN_ERR "format not supported\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	memset(&params, 0, sizeof(params));
++	params.csi_mem.csi = cam->csi; // MOD-MB-20160308 - without this the /dev/video1 never gets its interrupt
+ 	err = ipu_init_channel(cam->ipu, CSI_MEM, &params);
+ 	if (err != 0)
+ 		return err;
+diff --git a/drivers/media/platform/mxc/capture/mt9p031.c b/drivers/media/platform/mxc/capture/mt9p031.c
+index f99cd8f..102fe01 100644
+--- a/drivers/media/platform/mxc/capture/mt9p031.c
++++ b/drivers/media/platform/mxc/capture/mt9p031.c
+@@ -19,7 +19,7 @@
+  *
+  */
+ 
+-#define DEBUG
++//#define DEBUG
+ 
+ #include <linux/module.h>
+ #include <linux/init.h>
+@@ -44,7 +44,7 @@
+ 
+ #define RES_DEFAULT
+ 
+-#define MT9P031_DEBUG
++//#define MT9P031_DEBUG
+ 
+ #ifdef MT9P031_DEBUG
+ 	#define IN_FUNC DPRINTK_DRIVER("in %s:\n", __func__)
+diff --git a/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c b/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
+index 13ea9a2..8892240 100755
+--- a/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
++++ b/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
+@@ -19,7 +19,8 @@
+  * @ingroup MXC_V4L2_CAPTURE
+  */
+ 
+-#define DEBUG
++// MOD-MB-20160308
++//#define DEBUG
+ 
+ #include <linux/version.h>
+ #include <linux/module.h>
+@@ -1429,7 +1430,7 @@ static int mxc_v4l2_s_param(cam_data *cam, struct v4l2_streamparm *parm)
+ 	cam->crop_bounds.width = cam_fmt.fmt.pix.width;
+ 	cam->crop_bounds.height = cam_fmt.fmt.pix.height;
+ 
+-	// MOD-MB-20160209 - TBD - DEBU
++	// MOD-MB-20160209 - TBD - DEBUG
+ //	/*
+ //	 * Set the default current cropped resolution to be the same with
+ //	 * the cropping boundary(except for tvin module).
+@@ -1960,15 +1961,23 @@ static ssize_t mxc_v4l_read(struct file *file, char *buf, size_t count,
+ 		goto exit1;
+ 	}
+ 
+-	if (!wait_event_interruptible_timeout(cam->still_queue,
+-					      cam->still_counter != 0,
+-					      10 * HZ)) {
+-		pr_err("ERROR: v4l2 capture: mxc_v4l_read timeout counter %x\n",
+-		       cam->still_counter);
+-		err = -ETIME;
++	// MOD-MB-20160308 - blocking read(), no timeout
++//	if (!wait_event_interruptible_timeout(cam->still_queue,
++//					      cam->still_counter != 0,
++//					      10 * HZ)) {
++//		pr_err("ERROR: v4l2 capture: mxc_v4l_read timeout counter %x\n",
++//		       cam->still_counter);
++//		err = -ETIME;
++//		goto exit1;
++//	}
++	if ((err = wait_event_interruptible(cam->still_queue,
++					      cam->still_counter != 0)) != 0) {
++		pr_err("ERROR: v4l2 capture: mxc_v4l_read error=%d, still_cnt=%d\n",
++		       err, cam->still_counter);
+ 		goto exit1;
+ 	}
+-	err = copy_to_user(buf, v_address[1], cam->v2f.fmt.pix.sizeimage);
++//	err = copy_to_user(buf, v_address[1], cam->v2f.fmt.pix.sizeimage); // MOD-MB-20160308 - we use just one buffer
++	err = copy_to_user(buf, v_address[0], cam->v2f.fmt.pix.sizeimage);
+ 
+ exit1:
+ 	prp_still_deselect(cam);
+-- 
+1.7.9.5
+
