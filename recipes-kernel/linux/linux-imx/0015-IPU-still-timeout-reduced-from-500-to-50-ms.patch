@@ -1,0 +1,162 @@
+From cb51dff09da567b65ed20e7d8a4c601b1307f582 Mon Sep 17 00:00:00 2001
+From: Matteo Battaggia <matteo.battaggia@spacetest.com>
+Date: Wed, 18 May 2016 14:47:03 +0200
+Subject: [PATCH] IPU-still timeout reduced from 500 to 50 ms
+
+---
+ copy_modules_via_scp.sh                            |    8 +++++
+ drivers/media/platform/mxc/capture/ipu_still.c     |    5 +++
+ .../media/platform/mxc/capture/mxc_v4l2_capture.c  |   32 ++++++++++++++++++++
+ drivers/mxc/ipu3/ipu_capture.c                     |    6 +++-
+ 4 files changed, 50 insertions(+), 1 deletion(-)
+ create mode 100755 copy_modules_via_scp.sh
+
+diff --git a/copy_modules_via_scp.sh b/copy_modules_via_scp.sh
+new file mode 100755
+index 0000000..ead1118
+--- /dev/null
++++ b/copy_modules_via_scp.sh
+@@ -0,0 +1,8 @@
++#!/bin/sh
++
++SRC_DIR="drivers/media/platform/mxc/capture"
++TARGET_USER="root"
++TARGET_IP="192.168.1.14"
++DST_DIR="/lib/modules/3.10.17-1.0.1_ga+gdac46dc/kernel/drivers/media/platform/mxc/capture"
++
++scp $SRC_DIR/*.ko $TARGET_USER@$TARGET_IP:$DST_DIR/
+diff --git a/drivers/media/platform/mxc/capture/ipu_still.c b/drivers/media/platform/mxc/capture/ipu_still.c
+index 788f860..2ba7f20 100644
+--- a/drivers/media/platform/mxc/capture/ipu_still.c
++++ b/drivers/media/platform/mxc/capture/ipu_still.c
+@@ -196,12 +196,17 @@ static int prp_still_stop(void *private)
+ 	ipu_free_irq(IPU_IRQ_SENSOR_EOF, NULL);
+ 	ipu_free_irq(IPU_IRQ_SENSOR_OUT_EOF, cam);
+ #else
++	pr_debug("IPU_STILL: Calling ipu_free_irq() with jiffies=%lu\n", jiffies);
+ 	ipu_free_irq(cam->ipu, IPU_IRQ_CSI0_OUT_EOF, cam);
++	pr_debug("IPU_STILL: Returned from ipu_free_irq() with jiffies=%lu\n", jiffies);
+ #endif
+ 
+ 	ipu_disable_csi(cam->ipu, cam->csi);
++	pr_debug("IPU_STILL: Returned from ipu_disable_csi() with jiffies=%lu\n", jiffies);
+ 	ipu_disable_channel(cam->ipu, CSI_MEM, true);
++	pr_debug("IPU_STILL: Returned from ipu_disable_channel() with jiffies=%lu\n", jiffies);
+ 	ipu_uninit_channel(cam->ipu, CSI_MEM);
++	pr_debug("IPU_STILL: Returned from ipu_uninit_channel() with jiffies=%lu\n", jiffies);
+ 
+ 	return err;
+ }
+diff --git a/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c b/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
+index 8892240..636c785 100755
+--- a/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
++++ b/drivers/media/platform/mxc/capture/mxc_v4l2_capture.c
+@@ -1823,6 +1823,21 @@ static int mxc_v4l_open(struct file *file)
+ 
+ 	file->private_data = dev;
+ 
++//	// MOD-MB-20160518 - TBD - DEBUG -- this made the boot crash!
++//	err = prp_still_select(cam);
++//	if (err != 0) {
++//		err = -EIO;
++//		goto oops;
++//	}
++//
++//	// MOD-MB-20160518 - TBD - DEBUG -- this made the boot crash!
++//	cam->still_counter = 0;
++//	err = cam->csi_start(cam);
++//	if (err != 0) {
++//		err = -EIO;
++//		goto oops;
++//	}
++
+ oops:
+ 	up(&cam->busy_lock);
+ 	return err;
+@@ -1860,6 +1875,9 @@ static int mxc_v4l_close(struct file *file)
+ 		return -EBADF;
+ 	}
+ 
++//	// MOD-MB-20160518 - TBD - DEBUG -- this made the boot crash!
++//	prp_still_deselect(cam);
++
+ 	down(&cam->busy_lock);
+ 
+ 	/* for the case somebody hit the ctrl C */
+@@ -1926,6 +1944,8 @@ static ssize_t mxc_v4l_read(struct file *file, char *buf, size_t count,
+ 	struct video_device *dev = video_devdata(file);
+ 	cam_data *cam = video_get_drvdata(dev);
+ 
++	pr_debug("In MVC: Entering mxc_v4l_read() with jiffies=%lu\n", jiffies);
++
+ 	if (down_interruptible(&cam->busy_lock))
+ 		return -EINTR;
+ 
+@@ -1970,35 +1990,47 @@ static ssize_t mxc_v4l_read(struct file *file, char *buf, size_t count,
+ //		err = -ETIME;
+ //		goto exit1;
+ //	}
++	pr_debug("In MVC: Calling wait_event_interruptible() with jiffies=%lu\n", jiffies);
+ 	if ((err = wait_event_interruptible(cam->still_queue,
+ 					      cam->still_counter != 0)) != 0) {
+ 		pr_err("ERROR: v4l2 capture: mxc_v4l_read error=%d, still_cnt=%d\n",
+ 		       err, cam->still_counter);
+ 		goto exit1;
+ 	}
++	pr_debug("In MVC: Returned from wait_event_interruptible() with jiffies=%lu\n", jiffies);
+ //	err = copy_to_user(buf, v_address[1], cam->v2f.fmt.pix.sizeimage); // MOD-MB-20160308 - we use just one buffer
+ 	err = copy_to_user(buf, v_address[0], cam->v2f.fmt.pix.sizeimage);
++	pr_debug("In MVC: Returned from copy_to_user() with jiffies=%lu\n", jiffies);
+ 
+ exit1:
+ 	prp_still_deselect(cam);
++	pr_debug("In MVC: Returned from prp_still_deselect() with jiffies=%lu\n", jiffies);
+ 
+ exit0:
+ 	if (v_address[0] != 0)
+ 		dma_free_coherent(0, cam->v2f.fmt.pix.sizeimage, v_address[0],
+ 				  cam->still_buf[0]);
++	pr_debug("In MVC: Returned from dma_free_coherent(buf0) with jiffies=%lu\n", jiffies);
+ 	if (v_address[1] != 0)
+ 		dma_free_coherent(0, cam->v2f.fmt.pix.sizeimage, v_address[1],
+ 				  cam->still_buf[1]);
++	pr_debug("In MVC: Returned from dma_free_coherent(buf1) with jiffies=%lu\n", jiffies);
+ 
+ 	cam->still_buf[0] = cam->still_buf[1] = 0;
+ 
+ 	if (cam->overlay_on == true)
++	{
+ 		start_preview(cam);
++		pr_debug("In MVC: Returned from start_preview() with jiffies=%lu\n", jiffies);
++	}
+ 
+ 	up(&cam->busy_lock);
++	pr_debug("In MVC: Returned from up(&cam->busy_lock) with jiffies=%lu\n", jiffies);
+ 	if (err < 0)
+ 		return err;
+ 
++	pr_debug("In MVC: Exiting mxc_v4l_read() with jiffies=%lu\n", jiffies);
++
+ 	return cam->v2f.fmt.pix.sizeimage - err;
+ }
+ #endif
+diff --git a/drivers/mxc/ipu3/ipu_capture.c b/drivers/mxc/ipu3/ipu_capture.c
+index b86b50d..b03fae7 100644
+--- a/drivers/mxc/ipu3/ipu_capture.c
++++ b/drivers/mxc/ipu3/ipu_capture.c
+@@ -813,7 +813,11 @@ void _ipu_csi_wait4eof(struct ipu_soc *ipu, ipu_channel_t channel)
+ 		dev_err(ipu->dev, "CSI irq %d in use\n", irq);
+ 		return;
+ 	}
+-	ret = wait_for_completion_timeout(&ipu->csi_comp, msecs_to_jiffies(500));
++
++	// MOD-MB-20160518 - TBD - DEBUG
++//	ret = wait_for_completion_timeout(&ipu->csi_comp, msecs_to_jiffies(500));
++	ret = wait_for_completion_timeout(&ipu->csi_comp, msecs_to_jiffies(50));
++
+ 	ipu_free_irq(ipu, irq, ipu);
+ 	dev_dbg(ipu->dev, "CSI stop timeout - %d * 10ms\n", 5 - ret);
+ }
+-- 
+1.7.9.5
+
